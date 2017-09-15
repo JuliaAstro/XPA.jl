@@ -1,4 +1,4 @@
-# Julia interface to XPA Messaging System
+# A Julia interface to the XPA Messaging System
 
 This [Julia](http://julialang.org/) package provides an interface to the
 [XPA Messaging System](https://github.com/ericmandel/xpa) which provides
