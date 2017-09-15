@@ -26,16 +26,16 @@ const GET = UInt(1)
 const SET = UInt(2)
 const INFO = UInt(4)
 
-immutable AccessPoint
-    class::ASCIIString # class of the access point
-    name::ASCIIString  # name of the access point
-    addr::ASCIIString  # socket access method (host:port for inet,
-                       # file for local/unix)
-    user::ASCIIString  # user name of access point owner
-    access::UInt       # allowed access
+struct AccessPoint
+    class::String # class of the access point
+    name::String  # name of the access point
+    addr::String  # socket access method (host:port for inet,
+                  # file for local/unix)
+    user::String  # user name of access point owner
+    access::UInt  # allowed access
 end
 
-type Handle
+struct Handle
     _ptr::Ptr{Void}
 end
 
@@ -80,20 +80,20 @@ function xpa_list(; xpa::Handle=NullHandle)
 end
 
 # Convert a pointer to a Julia vector and let Julia manage the memory.
-_fetch{T}(ptr::Ptr{T}, nbytes::Integer) =
+_fetch(ptr::Ptr{T}, nbytes::Integer) where T =
     ptr == C_NULL ? Array(T, 0) :
     pointer_to_array(ptr, div(nbytes,sizeof(T)), true)
 
-_fetch{T}(::Type{T}, ptr::Ptr, nbytes::Integer) =
+_fetch(::Type{T}, ptr::Ptr, nbytes::Integer) where T =
     _fetch(convert(Ptr{T}, ptr), nbytes)
 
 _fetch(ptr::Ptr{Void}, nbytes::Integer) = _fetch(UInt8, ptr, nbytes)
 
-function _fetch(::Type{ASCIIString}, ptr::Ptr{UInt8})
+function _fetch(::Type{String}, ptr::Ptr{UInt8})
     if ptr == C_NULL
         str = ""
     else
-        str = bytestring(ptr)
+        str = unsafe_string(ptr)
         _free(ptr)
     end
     return str
@@ -138,8 +138,8 @@ function xpa_get(apt::AbstractString, params...; xpa::Handle=NullHandle,
               bufs, lens, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPAGet")
     return ntuple(i->(_fetch(bufs[i], lens[i]),
-                      _fetch(ASCIIString, names[i]),
-                      _fetch(ASCIIString, errs[i])), n)
+                      _fetch(String, names[i]),
+                      _fetch(String, errs[i])), n)
 end
 
 doc"""
@@ -162,7 +162,7 @@ doc"""
 converts the result of `xpa_get_bytes` into a single string.
 """
 xpa_get_text(args...; kwds...) =
-    bytestring(xpa_get_bytes(args...; kwds...))
+    unsafe_string(pointer(xpa_get_bytes(args...; kwds...)))
 
 doc"""
     xpa_get_lines(src [, params...]; keep=false, xpa=..., mode=...) -> arr
@@ -234,8 +234,8 @@ function xpa_set(apt::AbstractString, params...;
               xpa._ptr, apt, join(params, " "), mode,
               buf, len, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPASet")
-    tup = ntuple(i->(_fetch(ASCIIString, names[i]),
-                     _fetch(ASCIIString, errs[i])), n)
+    tup = ntuple(i->(_fetch(String, names[i]),
+                     _fetch(String, errs[i])), n)
     if check
         for (name, mesg) in tup
             length(mesg) > 0 && error(mesg)
@@ -247,13 +247,13 @@ end
 
 # These default values are defined in "xpap.h" and can be changed by
 # user environment variable:
-_DEFAULTS = Dict{AbstractString,Any}("XPA_MAXHOSTS" => 100,
-                                     "XPA_SHORT_TIMEOUT" => 15,
-                                     "XPA_LONG_TIMEOUT" => 180,
-                                     "XPA_CONNECT_TIMEOUT" => 10,
-                                     "XPA_TMPDIR" => "/tmp/.xpa",
-                                     "XPA_VERBOSITY" => true,
-                                     "XPA_IOCALLSXPA" => false)
+const _DEFAULTS = Dict{AbstractString,Any}("XPA_MAXHOSTS" => 100,
+                                           "XPA_SHORT_TIMEOUT" => 15,
+                                           "XPA_LONG_TIMEOUT" => 180,
+                                           "XPA_CONNECT_TIMEOUT" => 10,
+                                           "XPA_TMPDIR" => "/tmp/.xpa",
+                                           "XPA_VERBOSITY" => true,
+                                           "XPA_IOCALLSXPA" => false)
 
 function xpa_config(key::AbstractString)
     global _DEFAULTS, ENV
