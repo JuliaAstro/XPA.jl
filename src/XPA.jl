@@ -42,13 +42,15 @@ end
 const NullHandle = Handle(C_NULL)
 
 function xpa_open()
+    # The argument of XPAOpen is currently ignored (it is reserved for future
+    # use).
     ptr = ccall((:XPAOpen, libxpa), Ptr{Void}, (Ptr{Void},), C_NULL)
     if ptr == C_NULL
         error("failed to allocate a persistent XPA connection")
     end
     obj = Handle(ptr)
-    finalizer(obj, obj->(obj._ptr != C_NULL && ccall((:XPAClose, libxpa), Void,
-                                                     (Ptr{Void},), obj._ptr)))
+    finalizer(obj, obj -> ccall((:XPAClose, libxpa), Void,
+                                (Ptr{Void},), obj._ptr))
     return obj
 end
 
@@ -82,7 +84,7 @@ end
 # Convert a pointer to a Julia vector and let Julia manage the memory.
 _fetch(ptr::Ptr{T}, nbytes::Integer) where T =
     ptr == C_NULL ? Array(T, 0) :
-    pointer_to_array(ptr, div(nbytes,sizeof(T)), true)
+    pointer_to_array(ptr, div(nbytes, sizeof(T)), true)
 
 _fetch(::Type{T}, ptr::Ptr, nbytes::Integer) where T =
     _fetch(convert(Ptr{T}, ptr), nbytes)
