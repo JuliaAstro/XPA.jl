@@ -35,7 +35,8 @@ struct AccessPoint
     access::UInt  # allowed access
 end
 
-struct Handle
+# Must be mutable to be finalized.
+mutable struct Handle
     _ptr::Ptr{Void}
 end
 
@@ -49,14 +50,21 @@ function xpa_open()
         error("failed to allocate a persistent XPA connection")
     end
     obj = Handle(ptr)
-    finalizer(obj, obj -> ccall((:XPAClose, libxpa), Void,
-                                (Ptr{Void},), obj._ptr))
+    finalizer(obj, xpa_close)
     return obj
 end
 
-function xpa_list(; xpa::Handle=NullHandle)
-    lst = Array(AccessPoint, 0)
-    for str in xpa_get_lines("xpans"; xpa=xpa)
+function xpa_close(xpa::Handle)
+    if xpa._ptr != C_NULL
+        temp = xpa._ptr
+        xpa._ptr = C_NULL
+        ccall((:XPAClose, libxpa), Void, (Ptr{Void},), temp)
+    end
+end
+
+function xpa_list(xpa::Handle = NullHandle)
+    lst = Array{AccessPoint}(0)
+    for str in xpa_get_lines(xpa, "xpans")
         arr = split(str)
         if length(arr) != 5
             warn("expecting 5 fields per access point (\"$str\")")
@@ -75,8 +83,7 @@ function xpa_list(; xpa::Handle=NullHandle)
                 continue
             end
         end
-        push!(lst, AccessPoint(arr[1], arr[2], arr[4],
-                               arr[5], access))
+        push!(lst, AccessPoint(arr[1], arr[2], arr[4], arr[5], access))
     end
     return lst
 end
@@ -88,8 +95,8 @@ string and let Julia manage the memory.
 
 """
 _fetch(ptr::Ptr{T}, nbytes::Integer) where T =
-    ptr == C_NULL ? Array(T, 0) :
-    pointer_to_array(ptr, div(nbytes, sizeof(T)), true)
+    ptr == C_NULL ? Array{T}(0) :
+    unsafe_wrap(Array, ptr, div(nbytes, sizeof(T)), true)
 
 _fetch(::Type{T}, ptr::Ptr, nbytes::Integer) where T =
     _fetch(convert(Ptr{T}, ptr), nbytes)
@@ -134,19 +141,19 @@ function xpa_get(xpa::Handle, apt::AbstractString, params::AbstractString...;
     if nmax == -1
         nmax = xpa_config("XPA_MAXHOSTS")
     end
-    bufs = Array(Ptr{UInt8}, nmax)
-    lens = Array(Csize_t, nmax)
-    names = Array(Ptr{UInt8}, nmax)
-    errs = Array(Ptr{UInt8}, nmax)
+    bufs = Array{Ptr{UInt8}}(nmax)
+    lens = Array{Csize_t}(nmax)
+    names = Array{Ptr{UInt8}}(nmax)
+    errs = Array{Ptr{UInt8}}(nmax)
     n = ccall((:XPAGet, libxpa), Cint,
               (Ptr{Void}, Cstring, Cstring, Cstring, Ptr{Ptr{UInt8}},
                Ptr{Csize_t}, Ptr{Ptr{UInt8}}, Ptr{Ptr{UInt8}}, Cint),
               xpa._ptr, apt, join(params, " "), mode,
               bufs, lens, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPAGet")
-    return ntuple(i->(_fetch(bufs[i], lens[i]),
-                      _fetch(String, names[i]),
-                      _fetch(String, errs[i])), n)
+    return ntuple(i -> (_fetch(bufs[i], lens[i]),
+                        _fetch(String, names[i]),
+                        _fetch(String, errs[i])), n)
 end
 
 xpa_get(args::AbstractString...; kwds...) =
@@ -163,8 +170,14 @@ is thrown if `xpa_get` returns a non-empty error message.
 See also: [@ref](`xpa_get`).
 """
 function xpa_get_bytes(args...; kwds...)
-    (data, name, mesg) = xpa_get(args...; nmax=1, kwds...)[1]
-    length(mesg) > 0 && error(mesg)
+    tup = xpa_get(args...; nmax=1, kwds...)
+    local data::Vector{UInt8}
+    if length(tup) ≥ 1
+        (data, name, mesg) = tup[1]
+        length(mesg) > 0 && error(mesg)
+    else
+        data = Array{UInt8}(0)
+    end
     return data
 end
 
@@ -191,7 +204,7 @@ xpa_get_lines(args...; keep::Bool = false, kwds...) =
     split(chomp(xpa_get_text(args...; kwds...)), r"\n|\r\n?", keep=keep)
 
 doc"""
-    xpa_get_words([xpa,] apt [, params...]; xpa=..., mode=...) -> arr
+    xpa_get_words([xpa,] apt [, params...]; mode=...) -> arr
 
 splits the result of `xpa_get_text` into an array of words.
 
@@ -233,8 +246,7 @@ function xpa_set(xpa::Handle, apt::AbstractString, params::AbstractString...;
                  mode::AbstractString = "",
                  nmax::Integer = 1,
                  check::Bool = false)
-    buf::Ptr{Void}
-    len::Int
+    local buf::Ptr, len::Int
     if isa(data, Void)
         buf = C_NULL
         len = 0
@@ -246,16 +258,16 @@ function xpa_set(xpa::Handle, apt::AbstractString, params::AbstractString...;
     if nmax == -1
         nmax = xpa_config("XPA_MAXHOSTS")
     end
-    names = Array(Ptr{UInt8}, nmax)
-    errs = Array(Ptr{UInt8}, nmax)
+    names = Array{Ptr{UInt8}}(nmax)
+    errs = Array{Ptr{UInt8}}(nmax)
     n = ccall((:XPASet, libxpa), Cint,
               (Ptr{Void}, Cstring, Cstring, Cstring, Ptr{Void},
                Csize_t, Ptr{Ptr{UInt8}}, Ptr{Ptr{UInt8}}, Cint),
               xpa._ptr, apt, join(params, " "), mode,
               buf, len, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPASet")
-    tup = ntuple(i->(_fetch(String, names[i]),
-                     _fetch(String, errs[i])), n)
+    tup = ntuple(i -> (_fetch(String, names[i]),
+                       _fetch(String, errs[i])), n)
     if check
         for (name, mesg) in tup
             length(mesg) > 0 && error(mesg)
@@ -266,7 +278,6 @@ end
 
 xpa_set(args::AbstractString...; kwds...) =
     xpa_set(NullHandle, args...; kwds...)
-
 
 # These default values are defined in "xpap.h" and can be changed by
 # user environment variable:
