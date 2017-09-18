@@ -81,7 +81,12 @@ function xpa_list(; xpa::Handle=NullHandle)
     return lst
 end
 
-# Convert a pointer to a Julia vector and let Julia manage the memory.
+"""
+
+Private method `_fetch(...)` converts a pointer into a Julia vector or a
+string and let Julia manage the memory.
+
+"""
 _fetch(ptr::Ptr{T}, nbytes::Integer) where T =
     ptr == C_NULL ? Array(T, 0) :
     pointer_to_array(ptr, div(nbytes, sizeof(T)), true)
@@ -104,28 +109,28 @@ end
 _free(ptr::Ptr) = (ptr != C_NULL && ccall(:free, Void, (Ptr{Void},), ptr))
 
 doc"""
-    xpa_get(src [, params...]) -> tup
+    xpa_get([xpa,] apt [, params...]) -> tup
 
-retrieve data from one or more XPA access points identified by `src` (a
+retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
 parameters `params` (automatically converted into a single string where the
 parameters are separated by a single space).  The result is a tuple of tuples
 `(data,name,mesg)` where `data` is a vector of bytes (`UInt8`), `name` is a
 string identifying the server which answered the request and `mesg` is an error
-message (a zero-length string `""` if there are no errors).
+message (a zero-length string `""` if there are no errors).  Argument `xpa`
+specifies an XPA handle (created by `xpa_open`) for faster connections.
 
-The following keywords are accepted:
+The following keywords are available:
 
 * `nmax` specifies the maximum number of answers, `nmax=1` by default.
-  Use `nmax=-1` to use the maximum number of XPA hosts.
-
-* `xpa` specifies an XPA handle (created by `xpa_open`) for faster connections;
+  Specify `nmax=-1` to use the maximum number of XPA hosts.
 
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
+See also: [@ref](`xpa_open`), [@ref](`xpa_set`).
 """
-function xpa_get(apt::AbstractString, params...; xpa::Handle=NullHandle,
-                 mode::AbstractString="", nmax::Integer=1)
+function xpa_get(xpa::Handle, apt::AbstractString, params::AbstractString...;
+                 mode::AbstractString = "", nmax::Integer = 1)
     if nmax == -1
         nmax = xpa_config("XPA_MAXHOSTS")
     end
@@ -144,65 +149,76 @@ function xpa_get(apt::AbstractString, params...; xpa::Handle=NullHandle,
                       _fetch(String, errs[i])), n)
 end
 
-doc"""
-    xpa_get_bytes(src [, params...]; xpa=..., mode=...) -> buf
+xpa_get(args::AbstractString...; kwds...) =
+    xpa_get(NullHandle, args...; kwds...)
 
-returns the `data` part of the answers received by an `xpa_get` request as a
-vector of bytes.  Arguments `src` and `params...` and keywords `xpa` and `mode`
-are passed to `xpa_get` limiting the number of answers to be at most one.  An
-error is thrown if `xpa_get` returns a non-empty error message.
+doc"""
+    xpa_get_bytes([xpa,] apt [, params...]; mode=...) -> buf
+
+yields the `data` part of the answers received by an `xpa_get` request as a
+vector of bytes.  Arguments `xpa`, `apt` and `params...` and keyword `mode` are
+passed to `xpa_get` limiting the number of answers to be at most one.  An error
+is thrown if `xpa_get` returns a non-empty error message.
+
+See also: [@ref](`xpa_get`).
 """
-function xpa_get_bytes(args...; xpa::Handle=NullHandle, mode::AbstractString="")
-    (data, name, mesg) = xpa_get(args...; xpa=xpa, mode=mode, nmax=1)[1]
+function xpa_get_bytes(args...; kwds...)
+    (data, name, mesg) = xpa_get(args...; nmax=1, kwds...)[1]
     length(mesg) > 0 && error(mesg)
     return data
 end
 
+
 doc"""
-    xpa_get_text(src [, params...]; xpa=..., mode=...) -> str
+    xpa_get_text([xpa,] apt [, params...]; mode=...) -> str
 
 converts the result of `xpa_get_bytes` into a single string.
+
+See also: [@ref](`xpa_get_bytes`).
 """
 xpa_get_text(args...; kwds...) =
     unsafe_string(pointer(xpa_get_bytes(args...; kwds...)))
 
 doc"""
-    xpa_get_lines(src [, params...]; keep=false, xpa=..., mode=...) -> arr
+    xpa_get_lines([xpa,] apt [, params...]; keep=false, mode=...) -> arr
 
 splits the result of `xpa_get_text` into an array of strings, one for each
 line.  Keyword `keep` can be set `true` to keep empty lines.
+
+See also: [@ref](`xpa_get_text`).
 """
-xpa_get_lines(args...; keep::Bool=false, kwds...) =
+xpa_get_lines(args...; keep::Bool = false, kwds...) =
     split(chomp(xpa_get_text(args...; kwds...)), r"\n|\r\n?", keep=keep)
 
 doc"""
-    xpa_get_words(src [, params...]; xpa=..., mode=...) -> arr
+    xpa_get_words([xpa,] apt [, params...]; xpa=..., mode=...) -> arr
 
 splits the result of `xpa_get_text` into an array of words.
+
+See also: [@ref](`xpa_get_text`).
 """
 xpa_get_words(args...; kwds...) =
     split(xpa_get_text(args...; kwds...), r"[ \t\n\r]+", keep=false)
 
 doc"""
-    xpa_set(dest [, params...]; data=nothing) -> tup
+    xpa_set([xpa,] apt [, params...]; data=nothing) -> tup
 
-send `data` to one or more XPA access points identified by `dest` with
+sends `data` to one or more XPA access points identified by `apt` with
 parameters `params` (automatically converted into a single string where the
 parameters are separated by a single space).  The result is a tuple of tuples
 `(name,mesg)` where `name` is a string identifying the server which received
 the request and `mesg` is an error message (a zero-length string `""` if there
-are no errors).
+are no errors).  Argument `xpa` specifies an XPA handle (created by `xpa_open`)
+for faster connections.
 
-The following keywords are accepted:
+The following keywords are available:
 
 * `data` the data to send, may be `nothing` or an array.  If it is an array, it
   must be an instance of a sub-type of `DenseArray` which implements the
   `pointer` method.
 
 * `nmax` specifies the maximum number of answers, `nmax=1` by default.
-  Use `nmax=-1` to use the maximum number of XPA hosts.
-
-* `xpa` specifies an XPA handle (created by `xpa_open`) for faster connections;
+  Specify `nmax=-1` to use the maximum number of XPA hosts.
 
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
@@ -210,11 +226,13 @@ The following keywords are accepted:
   an error is thrown for the first non-empty error message `mesg` encountered
   in the list of answers.
 
+See also: [@ref](`xpa_open`), [@ref](`xpa_get`).
 """
-function xpa_set(apt::AbstractString, params...;
-                 data::Union{DenseArray,Void}=nothing,
-                 xpa::Handle=NullHandle, mode::AbstractString="",
-                 nmax::Integer=1, check::Bool=false)
+function xpa_set(xpa::Handle, apt::AbstractString, params::AbstractString...;
+                 data::Union{DenseArray,Void} = nothing,
+                 mode::AbstractString = "",
+                 nmax::Integer = 1,
+                 check::Bool = false)
     buf::Ptr{Void}
     len::Int
     if isa(data, Void)
@@ -245,6 +263,9 @@ function xpa_set(apt::AbstractString, params...;
     end
     return tup
 end
+
+xpa_set(args::AbstractString...; kwds...) =
+    xpa_set(NullHandle, args...; kwds...)
 
 
 # These default values are defined in "xpap.h" and can be changed by
