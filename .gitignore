@@ -1,3 +1,4 @@
 *~
 *.jl.cov
 *.jl.mem
+src/getfields.jl
