@@ -1,24 +1,34 @@
-# A Julia interface to the XPA Messaging System
+# A Julia interface to the XPA messaging system
 
 This [Julia](http://julialang.org/) package provides an interface to the
 [XPA Messaging System](https://github.com/ericmandel/xpa) which provides
 seamless communication between many kinds of Unix/Windows programs, including X
 programs and Tcl/Tk programs.
 
+The Julia interface to the XPA message system can be used as a client to send
+or query data from one or more XPA servers or to implement an XPA server.  The
+interface exploits the power of `ccall` to directly call the routines of the
+compiled XPA library.
 
-## Prerequisites
+
+## Prerequisites and installation
 
 To use this package, **XPA** must be installed on your computer.
 If this is not the case, they are available for different operating systems.
 For example, on Ubuntu, just do:
 
-    sudo apt-get install libxpa1
+    sudo apt-get install xpa-tools libxpa-dev
 
-You may also install the package `libxpa-dev` but this is only mandatory if you
-want to compile C programs using XPA.
+Then, in the `deps` directory, type:
 
-Optionally, you may want to install [IPC.jl](https://github.com/emmt/IPC.jl)
-package to benefit from shared memory.
+    make
+
+which is needed to generate Julia code to access the members of some XPA
+structures at offsets which may depend on your compiler and machine
+architecture.
+
+
+## Using the XPA message system
 
 In your Julia code/session, it is sufficient to do:
 
@@ -28,77 +38,94 @@ or:
 
     using XPA
 
+This makes no differences as nothing is exported by the `XPA` module.  This
+means that all methods or constants are prefixed by `XPA.`.  You may change the
+suffix, for instance:
 
-## Using the XPA Message System
+    using XPA
+    const xpa = XPA
 
-For now, only a subset of the client routines has been interfaced with Julia.
-The interface exploits the power of `ccall` to directly call the routines of
-the compiled XPA library.  The implemented methods are described in what
-follows, more extensive XPA documentation can be found
-[here](http://hea-www.harvard.edu/RD/xpa/help.html).
+The implemented methods are described in what follows, first the client side,
+then the server side and finally some utilities.  More extensive XPA
+documentation can be found [here](http://hea-www.harvard.edu/RD/xpa/help.html).
 
 
-### Get data
+### Using the XPA message system as a client
 
-The method:
+#### Persistent XPA client connection
 
-    xpa_get(src [, params...]) -> tup
+For each client request, XPA is able to automatically establish a temporary
+connection to the server.  This however implies some overheads and, to speed up
+the connection, a persistent XPA client can be created by calling
+`XPA.Client()` which returns an opaque object.  The connection is automatically
+shutdown and related ressoruces freed when the client object is garbage
+collected.  The `close()` method can also by applied to the client object, in
+that case all subsequent requests with the object will establish a (slow)
+temporary connection.
 
-retrieves data from one or more XPA access points identified by `src` (a
+
+#### Get data from one or more XPA servers
+
+To query something from one or more XPA servers, the most general method is:
+
+    XPA.get([xpa,] src [, params...]) -> tup
+
+which retrieves data from one or more XPA access points identified by `src` (a
 template name, a `host:port` string or the name of a Unix socket file) with
 parameters `params...` (automatically converted into a single string where the
 parameters are separated by a single space).  The result is a tuple of tuples
 `(data,name,mesg)` where `data` is a vector of bytes (`UInt8`), `name` is a
-string identifying the server which answered the request and `mesg` is an error
-message (a zero-length string `""` if there are no errors).
+string identifying the server which answered the request and `mesg` is an empty
+string or a meaasge (either an error or an informative message).  Optional
+argument `xpa` specifies a persistent XPA client (created by `XPA.Client()`)
+for faster connections.
 
-The following keywords are accepted:
+The `XPA.get()` method recognizes the following keywords:
 
-* `nmax` specifies the maximum number of answers, `nmax=1` by default.
-  Use `nmax=-1` to use the maximum number of XPA hosts.
-
-* `xpa` specifies an XPA handle (created by `xpa_open`) for faster connections.
+* Keyword `nmax` specifies the maximum number of answers, `nmax=1` by default.
+  Use `nmax=-1` to use the maximum number of XPA hosts.  Note that there are as
+  many tuples as answers in the result.
 
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
-
 There are simpler methods which return only the data part of the answer,
 possibly after conversion.  These methods limit the number of answers to be at
-most one and throw an error if `xpa_get` returns a non-empty error message.  To
-retrieve the `data` part of the answer received by an `xpa_get` request as a
-vector of bytes, call the method:
+most one and throw an error if `XPA.get()` returns a non-empty error message.
+To retrieve the `data` part of the answer received by an `XPA.get()` request as
+a vector of bytes, call the method:
 
-    xpa_get_bytes(src [, params...]; xpa=..., mode=...) -> buf
+    XPA.get_bytes([xpa,] src [, params...]; mode="") -> buf
 
-where arguments `src` and `params...` and keywords `xpa` and `mode` are passed
-to `xpa_get`.  To convert the result of `xpa_get_bytes` into a single string,
+where arguments `xpa`, `src` and `params...` and keyword `mode` are passed to
+`XPA.get()`.  To convert the result of `XPA.get_bytes()` into a single string,
 call the method:
 
-    xpa_get_text(src [, params...]; xpa=..., mode=...) -> str
+    XPA.get_text([xpa,] src [, params...]; mode="") -> str
 
-To split the result of `xpa_get_text` into an array of strings, one for each
+To split the result of `XPA.get_text` into an array of strings, one for each
 line, call the method:
 
-    xpa_get_lines(src [, params...]; keep=false, xpa=..., mode=...) -> arr
+    XPA.get_lines([xpa,] src [, params...]; keep=false, mode="") -> arr
 
 where keyword `keep` can be set `true` to keep empty lines.  Finally, to split
-the result of `xpa_get_text` into an array of words, call the method:
+the result of `XPA.get_text()` into an array of words, call the method:
 
-    xpa_get_words(src [, params...]; xpa=..., mode=...) -> arr
+    XPA.get_words([xpa,] src [, params...]; mode="") -> arr
 
 
-### Send data or commands
+#### Send data to one or more XPA servers
 
-The method:
+The `XPA.set()` method recognizes the following keywords:
 
-    xpa_set(dest [, params...]; data=nothing) -> tup
+    XPA.set([xpa,] dest [, params...]; data=nothing) -> tup
 
 send `data` to one or more XPA access points identified by `dest` with
 parameters `params...` (automatically converted into a single string where the
 parameters are separated by a single space).  The result is a tuple of tuples
 `(name,mesg)` where `name` is a string identifying the server which received
-the request and `mesg` is an error message (a zero-length string `""` if there
-are no errors).
+the request and `mesg` is an empty string or a message.  Optional argument
+`xpa` specifies a persistent XPA client (created by `XPA.Client()`) for faster
+connections.
 
 The following keywords are accepted:
 
@@ -106,10 +133,8 @@ The following keywords are accepted:
   must be an instance of a sub-type of `DenseArray` which implements the
   `pointer` method.
 
-* `nmax` specifies the maximum number of answers, `nmax=1` by default.
-  Use `nmax=-1` to use the maximum number of XPA hosts.
-
-* `xpa` specifies an XPA handle (created by `xpa_open`) for faster connections.
+* `nmax` specifies the maximum number of recipients, `nmax=1` by default.
+  Specify `nmax=-1` to use the maximum possible number of XPA hosts.
 
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
@@ -118,26 +143,84 @@ The following keywords are accepted:
   encountered in the list of answers.
 
 
-## Open a persistent client connection
+### Messages
+
+The returned messages string are of the form:
+
+    XPA$ERROR message (class:name ip:port)
+
+or
+
+    XPA$MESSAGE message (class:name ip:port)
+
+depending whether an error or an informative message has been set (with
+`XPA.seterror()` or `XPA.setmessage()` respectively).  Note that when there is
+an error stored in an messages entry, the corresponding data buffers may or may
+not be empty, depending on the particularities of the server.
+
+
+### Implementing an XPA server
+
+#### Create an XPA server
+
+The simplest way to create a new XPA server is to do:
+
+    server = XPA.Server(class, name, help, send, recv)
+
+where `class`, `name` and `help` are strings while `send` and `recv` are
+callbacks created by:
+
+    send = XPA.SendCallback(sendfunc, senddata)
+    recv = XPA.ReceiveCallback(recvfunc, recvdata)
+
+where `sendfunc` and `recvfunc` are the Julia methods to call while `senddata`
+and `recvdata` are any data needed by the callback other than what is specified
+by the client request (if omitted, `nothing` is assumed).  The callbacks
+have the following forms:
+
+    function sendfunc(senddata, xpa::Server, params::String,
+                      buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
+        ...
+        return XPA.SUCCESS
+    end
+
+The callbacks must return an integer status (of type `Cint`): either
+`XPA.SUCCESS` or `XPA.ERROR`.  The methods `XPA.seterror()` and
+`XPA.setmessage()` can be used to specify a message accompanying the result.
+
+
+    XPA.setbuf!(...)
+    XPA.get_send_mode(xpa)
+    XPA.get_recv_mode(xpa)
+    XPA.get_name(xpa)
+    XPA.get_class(xpa)
+    XPA.get_method(xpa)
+    XPA.get_sendian(xpa)
+    XPA.get_cmdfd(xpa)
+    XPA.get_datafd(xpa)
+    XPA.get_ack(xpa)
+    XPA.get_status(xpa)
+    XPA.get_cendian(xpa)
+
+
+#### Manage XPA requests
+
+
+    XPA.poll(msec, maxreq)
+
+or
+
+    XPA.mainloop()
+
+
+### Utilities
 
 The method:
 
-    xpa_open() -> handle
-
-returns a handle to an XPA persistent connection and which can be used as the
-argument of the `xpa` keyword of the `xpa_get` and `xpa_set` methods to speed
-up requests.  The persistent connection is automatically closed when the handle
-is finalized by the garbage collector.
-
-
-## Utilities
-
-The method:
-
-    xpa_list(; xpa=...) -> arr
+    XPA.list([xpa]) -> arr
 
 returns a list of the existing XPA access points as an array of structured
-elements:
+elements of type `XPA.AccessPoint` such that:
 
     arr[i].class    # class of the access point
     arr[i].name     # name of the access point
@@ -145,17 +228,16 @@ elements:
     arr[i].user     # user name of access point owner
     arr[i].access   # allowed access (g=xpaget,s=xpaset,i=xpainfo)
 
-all members but `access` are strings, the `addr` member is the name of the
-socket used for the connection (either `host:port` for internet socket, or a
-file path for local unix socket), `access` is a combination of the bits
-`XPA.GET`, `XPA.SET` and/or `XPA.INFO` depending whether `xpa_get`, `xpa_set`
-and/or `xpa_info` access are granted.  Note that `xpa_info` is not yet
-implemented.
+all fields but `access` are strings, the `addr` field is the name of the socket
+used for the connection (either `host:port` for internet socket, or a file path
+for local unix socket), `access` is a combination of the bits `XPA.GET`,
+`XPA.SET` and/or `XPA.INFO` depending whether `XPA.get()`, `XPA.set()` and/or
+`XPA.info()` access are granted.  Note that `XPA.info()` is not yet implemented.
 
 XPA messaging system can be configured via environment variables.  The
-method `xpa_config` provides means to get or set XPA settings:
+method `XPA.config` provides means to get or set XPA settings:
 
-    xpa_config(key) -> val
+    XPA.config(key) -> val
 
 yields the current value of the XPA parameter `key` which is one of:
 
@@ -170,6 +252,6 @@ yields the current value of the XPA parameter `key` which is one of:
 The key may be a symbol or a string, the value of a parameter may be a boolean,
 an integer or a string.  To set an XPA parameter, call the method:
 
-    xpa_config(key, val) -> old
+    XPA.config(key, val) -> old
 
 which returns the previous value of the parameter.
