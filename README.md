@@ -17,33 +17,47 @@ To use this package, **XPA** must be installed on your computer.
 If this is not the case, they are available for different operating systems.
 For example, on Ubuntu, just do:
 
-    sudo apt-get install xpa-tools libxpa-dev
+```sh
+sudo apt-get install xpa-tools libxpa-dev
+```
 
-Then, in the `deps` directory, type:
+The easiest way to install the package is to do it from Julia:
 
-    make
+```julia
+Pkg.clone("https://github.com/emmt/XPA.jl")
+Pkg.build("XPA")
+```
 
-which is needed to generate Julia code to access the members of some XPA
-structures at offsets which may depend on your compiler and machine
-architecture.
+To upgrade the package:
+
+```julia
+Pkg.update("XPA")
+Pkg.build("XPA")
+```
 
 
 ## Using the XPA message system
 
 In your Julia code/session, it is sufficient to do:
 
-    import XPA
+```julia
+import XPA
+```
 
 or:
 
-    using XPA
+```julia
+using XPA
+```
 
 This makes no differences as nothing is exported by the `XPA` module.  This
 means that all methods or constants are prefixed by `XPA.`.  You may change the
 suffix, for instance:
 
-    using XPA
-    const xpa = XPA
+```julia
+using XPA
+const xpa = XPA
+```
 
 The implemented methods are described in what follows, first the client side,
 then the server side and finally some utilities.  More extensive XPA
@@ -68,7 +82,9 @@ temporary connection.
 
 To query something from one or more XPA servers, the most general method is:
 
-    XPA.get([xpa,] src [, params...]) -> tup
+```julia
+XPA.get([xpa,] src [, params...]) -> tup
+```
 
 which retrieves data from one or more XPA access points identified by `src` (a
 template name, a `host:port` string or the name of a Unix socket file) with
@@ -94,30 +110,40 @@ most one and throw an error if `XPA.get()` returns a non-empty error message.
 To retrieve the `data` part of the answer received by an `XPA.get()` request as
 a vector of bytes, call the method:
 
-    XPA.get_bytes([xpa,] src [, params...]; mode="") -> buf
+```julia
+XPA.get_bytes([xpa,] src [, params...]; mode="") -> buf
+```
 
 where arguments `xpa`, `src` and `params...` and keyword `mode` are passed to
 `XPA.get()`.  To convert the result of `XPA.get_bytes()` into a single string,
 call the method:
 
-    XPA.get_text([xpa,] src [, params...]; mode="") -> str
+```julia
+XPA.get_text([xpa,] src [, params...]; mode="") -> str
+```
 
 To split the result of `XPA.get_text` into an array of strings, one for each
 line, call the method:
 
-    XPA.get_lines([xpa,] src [, params...]; keep=false, mode="") -> arr
+```julia
+XPA.get_lines([xpa,] src [, params...]; keep=false, mode="") -> arr
+```
 
 where keyword `keep` can be set `true` to keep empty lines.  Finally, to split
 the result of `XPA.get_text()` into an array of words, call the method:
 
-    XPA.get_words([xpa,] src [, params...]; mode="") -> arr
+```julia
+XPA.get_words([xpa,] src [, params...]; mode="") -> arr
+```
 
 
 #### Send data to one or more XPA servers
 
 The `XPA.set()` method recognizes the following keywords:
 
-    XPA.set([xpa,] dest [, params...]; data=nothing) -> tup
+```julia
+XPA.set([xpa,] dest [, params...]; data=nothing) -> tup
+```
 
 send `data` to one or more XPA access points identified by `dest` with
 parameters `params...` (automatically converted into a single string where the
@@ -147,11 +173,15 @@ The following keywords are accepted:
 
 The returned messages string are of the form:
 
-    XPA$ERROR message (class:name ip:port)
+```julia
+XPA$ERROR message (class:name ip:port)
+```
 
 or
 
-    XPA$MESSAGE message (class:name ip:port)
+```julia
+XPA$MESSAGE message (class:name ip:port)
+```
 
 depending whether an error or an informative message has been set (with
 `XPA.seterror()` or `XPA.setmessage()` respectively).  Note that when there is
@@ -165,68 +195,84 @@ not be empty, depending on the particularities of the server.
 
 The simplest way to create a new XPA server is to do:
 
-    server = XPA.Server(class, name, help, send, recv)
+```julia
+server = XPA.Server(class, name, help, send, recv)
+```
 
 where `class`, `name` and `help` are strings while `send` and `recv` are
 callbacks created by:
 
-    send = XPA.SendCallback(sendfunc, senddata)
-    recv = XPA.ReceiveCallback(recvfunc, recvdata)
+```julia
+send = XPA.SendCallback(sendfunc, senddata)
+recv = XPA.ReceiveCallback(recvfunc, recvdata)
+```
 
 where `sendfunc` and `recvfunc` are the Julia methods to call while `senddata`
 and `recvdata` are any data needed by the callback other than what is specified
 by the client request (if omitted, `nothing` is assumed).  The callbacks
 have the following forms:
 
-    function sendfunc(senddata, xpa::Server, params::String,
-                      buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
-        ...
-        return XPA.SUCCESS
-    end
+```julia
+function sendfunc(senddata, xpa::Server, params::String,
+                  buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
+    ...
+    return XPA.SUCCESS
+end
+```
 
 The callbacks must return an integer status (of type `Cint`): either
 `XPA.SUCCESS` or `XPA.ERROR`.  The methods `XPA.seterror()` and
 `XPA.setmessage()` can be used to specify a message accompanying the result.
 
 
-    XPA.setbuf!(...)
-    XPA.get_send_mode(xpa)
-    XPA.get_recv_mode(xpa)
-    XPA.get_name(xpa)
-    XPA.get_class(xpa)
-    XPA.get_method(xpa)
-    XPA.get_sendian(xpa)
-    XPA.get_cmdfd(xpa)
-    XPA.get_datafd(xpa)
-    XPA.get_ack(xpa)
-    XPA.get_status(xpa)
-    XPA.get_cendian(xpa)
+```julia
+XPA.setbuf!(...)
+XPA.get_send_mode(xpa)
+XPA.get_recv_mode(xpa)
+XPA.get_name(xpa)
+XPA.get_class(xpa)
+XPA.get_method(xpa)
+XPA.get_sendian(xpa)
+XPA.get_cmdfd(xpa)
+XPA.get_datafd(xpa)
+XPA.get_ack(xpa)
+XPA.get_status(xpa)
+XPA.get_cendian(xpa)
+```
 
 
 #### Manage XPA requests
 
 
-    XPA.poll(msec, maxreq)
+```julia
+XPA.poll(msec, maxreq)
+```
 
 or
 
-    XPA.mainloop()
+```julia
+XPA.mainloop()
+```
 
 
 ### Utilities
 
 The method:
 
-    XPA.list([xpa]) -> arr
+```julia
+XPA.list([xpa]) -> arr
+```
 
 returns a list of the existing XPA access points as an array of structured
 elements of type `XPA.AccessPoint` such that:
 
-    arr[i].class    # class of the access point
-    arr[i].name     # name of the access point
-    arr[i].addr     # socket address
-    arr[i].user     # user name of access point owner
-    arr[i].access   # allowed access (g=xpaget,s=xpaset,i=xpainfo)
+```julia
+arr[i].class    # class of the access point
+arr[i].name     # name of the access point
+arr[i].addr     # socket address
+arr[i].user     # user name of access point owner
+arr[i].access   # allowed access (g=xpaget,s=xpaset,i=xpainfo)
+```
 
 all fields but `access` are strings, the `addr` field is the name of the socket
 used for the connection (either `host:port` for internet socket, or a file path
@@ -237,21 +283,27 @@ for local unix socket), `access` is a combination of the bits `XPA.GET`,
 XPA messaging system can be configured via environment variables.  The
 method `XPA.config` provides means to get or set XPA settings:
 
-    XPA.config(key) -> val
+```julia
+XPA.config(key) -> val
+```
 
 yields the current value of the XPA parameter `key` which is one of:
 
-    "XPA_MAXHOSTS"
-    "XPA_SHORT_TIMEOUT"
-    "XPA_LONG_TIMEOUT"
-    "XPA_CONNECT_TIMEOUT"
-    "XPA_TMPDIR"
-    "XPA_VERBOSITY"
-    "XPA_IOCALLSXPA"
+```julia
+"XPA_MAXHOSTS"
+"XPA_SHORT_TIMEOUT"
+"XPA_LONG_TIMEOUT"
+"XPA_CONNECT_TIMEOUT"
+"XPA_TMPDIR"
+"XPA_VERBOSITY"
+"XPA_IOCALLSXPA"
+```
 
 The key may be a symbol or a string, the value of a parameter may be a boolean,
 an integer or a string.  To set an XPA parameter, call the method:
 
-    XPA.config(key, val) -> old
+```julia
+XPA.config(key, val) -> old
+```
 
 which returns the previous value of the parameter.
