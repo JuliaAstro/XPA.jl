@@ -55,7 +55,9 @@ const TEMPORARY = Client(C_NULL)
 const _SERVERS = Dict{Ptr{Void},Any}()
 
 """
-    XPA.Client()
+```julia
+XPA.Client()
+```
 
 yields a persistent XPA client handle which can be used for calls to `XPA.set`
 and XPA.get` methods.  Persistence means that a connection to an XPA server is
@@ -80,21 +82,20 @@ end
 Base.isopen(xpa::Handle) = xpa.ptr != C_NULL
 
 function Base.close(xpa::Client)
-    if xpa.ptr != C_NULL
-        ptr = xpa.ptr
+    if (ptr = xpa.ptr) != C_NULL
         xpa.ptr = C_NULL
         ccall((:XPAClose, libxpa), Void, (Ptr{Void},), ptr)
     end
+    return nothing
 end
 
 function Base.close(xpa::Server)
-    if xpa.ptr != C_NULL
-        ptr = xpa.ptr
+    if (ptr = xpa.ptr) != C_NULL
         xpa.ptr = C_NULL
         ccall((:XPAFree, libxpa), Cint, (Ptr{Void},), ptr)
         haskey(_SERVERS, ptr) && pop!(_SERVERS, ptr)
     end
-    nothing
+    return nothing
 end
 
 function list(xpa::Client = TEMPORARY)
@@ -133,8 +134,10 @@ function _fetch(::Type{String}, ptr::Ptr{UInt8})
     return str
 end
 
-doc"""
-    XPA.get([xpa,] apt [, params...]) -> tup
+"""
+```julia
+XPA.get([xpa,] apt [, params...]) -> tup
+```
 
 retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
@@ -154,9 +157,10 @@ The following keywords are available:
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
 See also: [`XPA.Client`](@ref), [`XPA.set`](@ref).
+
 """
 function get(xpa::Client, apt::AbstractString, params::AbstractString...;
-                 mode::AbstractString = "", nmax::Integer = 1)
+             mode::AbstractString = "", nmax::Integer = 1)
     if nmax == -1
         nmax = config("XPA_MAXHOSTS")
     end
@@ -178,8 +182,10 @@ end
 get(args::AbstractString...; kwds...) =
     get(TEMPORARY, args...; kwds...)
 
-doc"""
-    XPA.get_bytes([xpa,] apt [, params...]; mode=...) -> buf
+"""
+```julia
+XPA.get_bytes([xpa,] apt [, params...]; mode=...) -> buf
+```
 
 yields the `data` part of the answers received by an `XPA.get` request as a
 vector of bytes.  Arguments `xpa`, `apt` and `params...` and keyword `mode` are
@@ -187,6 +193,7 @@ passed to `XPA.get` limiting the number of answers to be at most one.  An error
 is thrown if `XPA.get` returns a non-empty error message.
 
 See also: [`XPA.get`](@ref).
+
 """
 function get_bytes(args...; kwds...)
     tup = get(args...; nmax=1, kwds...)
@@ -200,40 +207,50 @@ function get_bytes(args...; kwds...)
     return data
 end
 
-
-doc"""
-    XPA.get_text([xpa,] apt [, params...]; mode=...) -> str
+"""
+```julia
+XPA.get_text([xpa,] apt [, params...]; mode=...) -> str
+```
 
 converts the result of `XPA.get_bytes` into a single string.
 
 See also: [`XPA.get_bytes`](@ref).
+
 """
 get_text(args...; kwds...) =
     unsafe_string(pointer(get_bytes(args...; kwds...)))
 
-doc"""
-    XPA.get_lines([xpa,] apt [, params...]; keep=false, mode=...) -> arr
+"""
+```julia
+XPA.get_lines([xpa,] apt [, params...]; keep=false, mode=...) -> arr
+```
 
 splits the result of `XPA.get_text` into an array of strings, one for each
 line.  Keyword `keep` can be set `true` to keep empty lines.
 
 See also: [`XPA.get_text`](@ref).
+
 """
 get_lines(args...; keep::Bool = false, kwds...) =
     split(chomp(get_text(args...; kwds...)), r"\n|\r\n?", keep=keep)
 
-doc"""
-    XPA.get_words([xpa,] apt [, params...]; mode=...) -> arr
+"""
+```julia
+XPA.get_words([xpa,] apt [, params...]; mode=...) -> arr
+```
 
 splits the result of `XPA.get_text` into an array of words.
 
 See also: [`XPA.get_text`](@ref).
+
 """
 get_words(args...; kwds...) =
     split(get_text(args...; kwds...), r"[ \t\n\r]+", keep=false)
 
-doc"""
-    XPA.set([xpa,] apt [, params...]; data=nothing) -> tup
+"""
+```julia
+XPA.set([xpa,] apt [, params...]; data=nothing) -> tup
+```
 
 sends `data` to one or more XPA access points identified by `apt` with
 parameters `params` (automatically converted into a single string where the
@@ -247,7 +264,7 @@ The following keywords are available:
 
 * `data` the data to send, may be `nothing` or an array.  If it is an array, it
   must be an instance of a sub-type of `DenseArray` which implements the
-  `pointer` method.
+  `pointer` and `sizeof` methods.
 
 * `nmax` specifies the maximum number of recipients, `nmax=1` by default.
   Specify `nmax=-1` to use the maximum possible number of XPA hosts.
@@ -259,6 +276,7 @@ The following keywords are available:
   of answers.
 
 See also: [`XPA.Client`](@ref), [`XPA.get`](@ref).
+
 """
 function set(xpa::Client, apt::AbstractString, params::AbstractString...;
              data::Union{DenseArray,Void} = nothing,
@@ -323,8 +341,8 @@ function config(key::AbstractString)
     end
 end
 
-function config{T<:Union{Integer,Bool,AbstractString}}(key::AbstractString,
-                                                           val::T)
+function config(key::AbstractString, val::T) where {T<:Union{Integer,Bool,
+                                                             AbstractString}}
     global _DEFAULTS, ENV
     old = config(key) # also check validity of key
     def = _DEFAULTS[key]
@@ -450,32 +468,38 @@ _mode(cb::SendCallback) = "acl=$(cb.acl),freebuf=$(cb.freebuf)"
 _mode(cb::ReceiveCallback) =
     "acl=$(cb.acl),buf=$(cb.buf),fillbuf=$(cb.fillbuf),freebuf=$(cb.freebuf)"
 
+
 """
 
 You must make sure that the `send` and `recv` callbacks exist during the
 life of the server.
 
+The send callback is will be called in response to an external request from the
+`xpaget program`, the `XPAGet()` routine, or `XPAGetFd()` routine.  This
+callback is used to send data to the requesting client and has the following
+signature:
 
-    function sproc(data, xpa::XPA.Server, params::String,
-                   buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
-        println("send: \$params")
-        result = ...
-        return XPA.setbuf!(xpa, result, true)
-    end
+```julia
+function sproc(data, xpa::XPA.Server, params::String,
+	       buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
+    println("send: \$params")
+    result = ...
+    return XPA.setbuf!(xpa, result, true)
+end
 
-    function rproc(data, xpa::XPA.Server, params::String,
-                   buf::Ptr{UInt8}, len::Integer)
-        println("receive: \$params")
-        arr = unsafe_wrap(buf, len, false)
-        ...
-        return XPA.SUCCESS
-    end
+function rproc(data, xpa::XPA.Server, params::String,
+	       buf::Ptr{UInt8}, len::Integer)
+    println("receive: \$params")
+    arr = unsafe_wrap(buf, len, false)
+    ...
+    return XPA.SUCCESS
+end
 
-    send = XPA.SendCallback(sproc, sdata)
-    recv = XPA.ReceiveCallback(rproc, rdata)
+send = XPA.SendCallback(sproc, sdata)
+recv = XPA.ReceiveCallback(rproc, rdata)
 
-    server = XPA.Server(class, name, help, send, recv)
-
+server = XPA.Server(class, name, help, send, recv)
+```
 """
 function Server(class::AbstractString,
                 name::AbstractString,
@@ -545,13 +569,15 @@ function resetbuf!(buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
 end
 
 """
-    XPA.setbuf!(xpa, arg, cpy)
+```julia
+XPA.setbuf!(xpa, arg, cpy)
+```
 
 set the buffer of the XPA server `xpa` to store the result of an XPAGet()
 request.
 
 """
-function setbuf!(xpa::Server, buf::Ptr{Void}, len::Csize_t, copy::Bool)
+function setbuf!(xpa::Server, buf::Ptr{Void}, len::Integer, copy::Bool)
     # Second argument of `XPASetBuf` is a `char*` but we just want to deal with
     # an address.
     if ccall((:XPASetBuf, libxpa), Cint,
@@ -592,10 +618,13 @@ end
 """
 Private method:
 
-    _get_string(ptr, def = "")
+```julia
+_get_string(ptr, def = "")
+```
 
 converts a byte buffer into a Julia string.  If `ptr` is NULL, `def` is
 returned.
+
 """
 _get_string(ptr::Ptr{UInt8}, def::String = "") =
     ptr == Ptr{UInt8}(0) ? def : unsafe_string(ptr)
@@ -603,11 +632,15 @@ _get_string(ptr::Ptr{UInt8}, def::String = "") =
 """
 Private methods:
 
-    _get_field(T, ptr, off, def)
+```julia
+_get_field(T, ptr, off, def)
+```
 
 and
 
-    _get_field(T, ptr, off1, off2, def)
+```julia
+_get_field(T, ptr, off1, off2, def)
+```
 
 retrieve a field of type `T` at offset `off` (in bytes) with respect to address
 `ptr`.  If two offsets are given, the first one refers to a pointer with
@@ -645,7 +678,9 @@ _fetch(ptr::Ptr{Void}, nbytes::Integer) = _fetch(UInt8, ptr, nbytes)
 
 
 """
-    `_malloc(n)`
+```julia
+_malloc(n)
+```
 
 dynamically allocates `n` bytes and returns the corresponding byte pointer
 (type `Ptr{UInt8}`).
@@ -658,7 +693,9 @@ function _malloc(n::Integer) :: Ptr{UInt8}
 end
 
 """
-    `_free(ptr)`
+```julia
+_free(ptr)
+```
 
 frees dynamically allocated memory at address givne by `ptr` unless it is NULL.
 
@@ -666,7 +703,9 @@ frees dynamically allocated memory at address givne by `ptr` unless it is NULL.
 _free(ptr::Ptr) = (ptr == C_NULL || ccall(:free, Void, (Ptr{Void},), ptr))
 
 """
-    `_memcpy!(dst, src, n)` -> dst
+```julia
+_memcpy!(dst, src, n)` -> dst
+```
 
 copies `n` bytes from address `src` to `dst` and return `dst` as a byte pointer
 (type `Ptr{UInt8}`).
@@ -676,7 +715,9 @@ _memcpy!(dst::Ptr, src::Ptr, n::Integer) :: Ptr{UInt8} =
     ccall(:memcpy, Ptr{UInt8}, (Ptr{Void}, Ptr{Void}, Csize_t), dst, src, n)
 
 """
-    `_copy(arg)`
+```julia
+_copy(arg)
+```
 
 yields a dynamically allocated copy of `arg` in the form of a byte pointer
 (type `Ptr{UInt8}`).
