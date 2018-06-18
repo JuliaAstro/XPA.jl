@@ -1,43 +1,53 @@
+/*
+ * gencode.c --
+ *
+ * Generate constants definitions for Julia.
+ *
+ *------------------------------------------------------------------------------
+ *
+ * This file is part of XPA.jl released under the MIT "expat" license.
+ * Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
+ */
+
 #include <stdio.h>
 #include <xpa.h>
 
-#define offset(type,field) (int)((char*)&((type*)0)->field - (char*)0)
+/*
+ * Determine the offset of a field in a structure.
+ */
+#define OFFSET(type, field) (int)((char*)&((type*)0)->field - (char*)0)
+
+/*
+ * Define a Julia constant with the offset (in bytes) of a field of a
+ * C-structure.
+ */
+#define DEF_OFFSETOF(ident, type, field)                \
+  fprintf(output, "const _offsetof_" ident " = %3ld\n", \
+          (long)OFFSET(type, field))
 
 int main(int argc, char* argv[])
 {
   FILE* output = stdout;
 
   fprintf(output, "\n");
-  fprintf(output, "_get_comm(xpa::Handle) =");
-  fprintf(output, " _get_field(Ptr{Void}, xpa.ptr, %d, C_NULL)\n\n",
-          offset(XPARec, comm));
+  fprintf(output, "# Field offsets in main XPARec structure.\n");
+  DEF_OFFSETOF("class    ", XPARec, xclass);
+  DEF_OFFSETOF("name     ", XPARec, name);
+  DEF_OFFSETOF("send_mode", XPARec, send_mode);
+  DEF_OFFSETOF("recv_mode", XPARec, receive_mode);
+  DEF_OFFSETOF("method   ", XPARec, method);
+  DEF_OFFSETOF("sendian  ", XPARec, sendian);
+  DEF_OFFSETOF("comm     ", XPARec, comm);
 
-#define GET1(param, type, field, def)                   \
-  fprintf(output,                                       \
-          "get_%s(xpa::Handle) ="                       \
-          " _get_field(%s, xpa.ptr, %d, %s)\n\n",       \
-          #param, #type, offset(XPARec, field), def)
-
-#define GET2(param, type, field, def)                           \
-  fprintf(output,                                               \
-          "get_%s(xpa::Handle) ="                               \
-          " _get_field(%s, _get_comm(xpa), %d, %s)\n\n",        \
-          #param, #type, offset(XPACommRec, field), def)
-
-  GET1(send_mode,    Cint,   send_mode,    "Cint(0)");
-  GET1(recv_mode,    Cint,   receive_mode, "Cint(0)");
-  GET1(name,         String, name,         "\"\"");
-  GET1(class,        String, xclass,       "\"\"");
-  GET1(method,       String, method,       "\"\"");
-  GET1(sendian,      String, sendian,      "\"?\"");
-  GET2(cmdfd,        Cint,   cmdfd,        "Cint(-1)");
-  GET2(datafd,       Cint,   datafd,       "Cint(-1)");
-  GET2(ack,          Cint,   ack,          "Cint(1)");
-  GET2(status,       Cint,   status,       "Cint(0)");
-  GET2(cendian,      String, cendian,      "\"?\"");
-
-#undef GET1
-#undef GET2
+  fprintf(output, "\n");
+  fprintf(output, "# Field offsets in XPACommRec structure.\n");
+  DEF_OFFSETOF("comm_status ", XPACommRec, status);
+  DEF_OFFSETOF("comm_cmdfd  ", XPACommRec, cmdfd);
+  DEF_OFFSETOF("comm_datafd ", XPACommRec, datafd);
+  DEF_OFFSETOF("comm_cendian", XPACommRec, cendian);
+  DEF_OFFSETOF("comm_ack    ", XPACommRec, ack);
+  DEF_OFFSETOF("comm_buf    ", XPACommRec, buf);
+  DEF_OFFSETOF("comm_len    ", XPACommRec, len);
 
   return 0;
 }

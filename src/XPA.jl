@@ -6,22 +6,26 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2017, Éric Thiébaut (https://github.com/emmt/XPA.jl).
+# Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
 #
 module XPA
 
 const libxpa = "libxpa."*Libdl.dlext
 
+const Byte = UInt8
+const NULL = convert(Ptr{Byte}, 0)
+
 # Super type for client and server XPA objects.
 abstract type Handle end
 
-# Must be mutable to be finalized.
+# XPA client, must be mutable to be finalized.
 mutable struct Client <: Handle
-    ptr::Ptr{Void}
+    ptr::Ptr{Void} # pointer to XPARec structure
 end
 
+# XPA server, must be mutable to be finalized.
 mutable struct Server <: Handle
-    ptr::Ptr{Void}
+    ptr::Ptr{Void} # pointer to XPARec structure
 end
 
 struct AccessPoint
@@ -33,6 +37,7 @@ struct AccessPoint
     access::UInt  # allowed access
 end
 
+# Server mode flags for receive, send, info.
 const MODE_BUF     = 1
 const MODE_FILLBUF = 2
 const MODE_FREEBUF = 4
@@ -44,8 +49,8 @@ const INFO = UInt(4)
 
 """
 
-`XPA.TEMPORARY` can be specified wherever a `Client` connection is expected to
-use a non-persistent XPA connection.
+`XPA.TEMPORARY` can be specified wherever an `XPA.Client` instance is expected
+to use a non-persistent XPA connection.
 
 """
 const TEMPORARY = Client(C_NULL)
@@ -124,7 +129,7 @@ function list(xpa::Client = TEMPORARY)
     return lst
 end
 
-function _fetch(::Type{String}, ptr::Ptr{UInt8})
+function _fetch(::Type{String}, ptr::Ptr{Byte})
     if ptr == C_NULL
         str = ""
     else
@@ -132,6 +137,23 @@ function _fetch(::Type{String}, ptr::Ptr{UInt8})
         _free(ptr)
     end
     return str
+end
+
+"""
+```julia
+error(srv, msg) -> XPA.FAILURE
+```
+
+communicates error message `msg` to the client when serving a request by XPA
+server `srv`.  This method shall only be used by the send/receive callbacks of
+an XPA server.
+
+"""
+function Base.error(srv::Server, msg::AbstractString)
+    ccall((:XPAError, libxpa), Cint, (Ptr{Void}, Cstring),
+          srv.ptr, msg) == SUCCESS ||
+              error("XPAError failed for message \"$msg\"");
+    return FAILURE
 end
 
 """
@@ -164,13 +186,13 @@ function get(xpa::Client, apt::AbstractString, params::AbstractString...;
     if nmax == -1
         nmax = config("XPA_MAXHOSTS")
     end
-    bufs = Array{Ptr{UInt8}}(nmax)
+    bufs = Array{Ptr{Byte}}(nmax)
     lens = Array{Csize_t}(nmax)
-    names = Array{Ptr{UInt8}}(nmax)
-    errs = Array{Ptr{UInt8}}(nmax)
+    names = Array{Ptr{Byte}}(nmax)
+    errs = Array{Ptr{Byte}}(nmax)
     n = ccall((:XPAGet, libxpa), Cint,
-              (Ptr{Void}, Cstring, Cstring, Cstring, Ptr{Ptr{UInt8}},
-               Ptr{Csize_t}, Ptr{Ptr{UInt8}}, Ptr{Ptr{UInt8}}, Cint),
+              (Ptr{Void}, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
+               Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
               xpa.ptr, apt, join(params, " "), mode,
               bufs, lens, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPAGet")
@@ -197,12 +219,12 @@ See also: [`XPA.get`](@ref).
 """
 function get_bytes(args...; kwds...)
     tup = get(args...; nmax=1, kwds...)
-    local data::Vector{UInt8}
+    local data::Vector{Byte}
     if length(tup) ≥ 1
         (data, name, mesg) = tup[1]
         length(mesg) > 0 && error(mesg)
     else
-        data = Array{UInt8}(0)
+        data = Array{Byte}(0)
     end
     return data
 end
@@ -295,11 +317,11 @@ function set(xpa::Client, apt::AbstractString, params::AbstractString...;
     if nmax == -1
         nmax = config("XPA_MAXHOSTS")
     end
-    names = Array{Ptr{UInt8}}(nmax)
-    errs = Array{Ptr{UInt8}}(nmax)
+    names = Array{Ptr{Byte}}(nmax)
+    errs = Array{Ptr{Byte}}(nmax)
     n = ccall((:XPASet, libxpa), Cint,
               (Ptr{Void}, Cstring, Cstring, Cstring, Ptr{Void},
-               Csize_t, Ptr{Ptr{UInt8}}, Ptr{Ptr{UInt8}}, Cint),
+               Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
               xpa.ptr, apt, join(params, " "), mode,
               buf, len, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPASet")
@@ -366,13 +388,11 @@ config(key::Symbol, val) = config(string(key), val)
 
 abstract type Callback end
 
-abstract type UnsafeBuffer end
-
 struct SendCallback{T} <: Callback
-    send::Function
-    data::T
-    acl::Bool     # enable access control
-    freebuf::Bool # free buf after callback completes
+    send::Function # function to call on `XPAGet` requests
+    data::T        # client data
+    acl::Bool      # enable access control
+    freebuf::Bool  # free buf after callback completes
 end
 
 SendCallback(send::Function; kwds...) =
@@ -386,12 +406,12 @@ function SendCallback(send::Function,
 end
 
 struct ReceiveCallback{T} <: Callback
-    recv::Function
-    data::T
-    acl::Bool     # enable access control
-    buf::Bool     # server expects data bytes from client
-    fillbuf::Bool # read data into buf before executing callback
-    freebuf::Bool # free buf after callback completes
+    recv::Function # function to call on `XPASet` requests
+    data::T        # client data
+    acl::Bool      # enable access control
+    buf::Bool      # server expects data bytes from client
+    fillbuf::Bool  # read data into buffer before executing callback
+    freebuf::Bool  # free buffer after callback completes
 end
 
 ReceiveCallback(recv::Function; kwds...) =
@@ -413,48 +433,54 @@ const _RECV_REF = Ref{Ptr{Void}}(0)
 function __init__()
     global _SEND_REF, _RECV_REF
     _SEND_REF[] = cfunction(_send, Cint,
-                            (Ptr{Void},       # client_data
-                             Ptr{Void},       # call_data
-                             Ptr{UInt8},      # paramlist
-                             Ptr{Ptr{UInt8}}, # buf
-                             Ptr{Csize_t}))   # len
+                            (Ptr{Void},      # client_data
+                             Ptr{Void},      # call_data
+                             Ptr{Byte},      # paramlist
+                             Ptr{Ptr{Byte}}, # buf
+                             Ptr{Csize_t}))  # len
     _RECV_REF[] = cfunction(_recv, Cint,
-                            (Ptr{Void},       # client_data
-                             Ptr{Void},       # call_data
-                             Ptr{UInt8},      # paramlist
-                             Ptr{UInt8},      # buf
-                             Csize_t))        # len
+                            (Ptr{Void},      # client_data
+                             Ptr{Void},      # call_data
+                             Ptr{Byte},      # paramlist
+                             Ptr{Byte},      # buf
+                             Csize_t))       # len
 end
 
-function _send(clientdata::Ptr{Void}, handle::Ptr{Void}, params::Ptr{UInt8},
-               buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
-    resetbuf!(buf, len)
-    return _send(unsafe_pointer_to_objref(clientdata), Server(handle),
-                 (params == C_NULL ? "" : unsafe_string(params)), buf, len)
+function _send(clientdata::Ptr{Void}, handle::Ptr{Void}, params::Ptr{Byte},
+               bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})
+    # Check assumptions.
+    srv = Server(handle)
+    (get_send_mode(srv) & MODE_FREEBUF) != 0 ||
+        return error(srv, "send mode must have `freebuf` option set")
+
+    # Call actual callback providing the client data is the address of a known
+    # SendCallback object.
+    return _send(unsafe_pointer_to_objref(clientdata), srv,
+                 (params == C_NULL ? "" : unsafe_string(params)),
+                 bufptr, lenptr)
 end
 
-function _send(cb::SendCallback, xpa::Server, params::String,
-               buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
-    return cb.send(cb.data, xpa, params, buf, len)
+function _send(cb::SendCallback, srv::Server, params::String,
+               bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})
+    return cb.send(cb.data, srv, params, bufptr, lenptr)
 end
-
 
 # The receive callback is executed in response to an external request from the
 # `xpaset` program, the `XPASet()` routine, or `XPASetFd()` routine.
-function _recv(clientdata::Ptr{Void}, handle::Ptr{Void}, params::Ptr{UInt8},
-               buf::Ptr{UInt8}, len::Csize_t)
+function _recv(clientdata::Ptr{Void}, handle::Ptr{Void}, params::Ptr{Byte},
+               buf::Ptr{Byte}, len::Csize_t)
+    # Call actual callback providing the client data is the address of a known
+    # ReceiveCallback object.
     return _recv(unsafe_pointer_to_objref(clientdata), Server(handle),
-                 (params == C_NULL ? "" : unsafe_string(params)),#FIXME: use unsafe_wrap(String, ..., false)
-                 buf, len)
+                 (params == C_NULL ? "" : unsafe_string(params)), buf, len)
 end
 
-function _recv(cb::ReceiveCallback, xpa::Server, params::String,
-               buf::Ptr{UInt8}, len::Csize_t)
-    # If the receive callback mode has option `freebuf=false`, then
-    # `buf` must be managed by the callback, by default `freebuf=true`
-    # and the buffer is automatically released after callback completes.
-    #unsafe_wrap(Array, buf, len, false)
-    return cb.recv(cb.data, xpa, params, buf, len)
+# If the receive callback mode has option `freebuf=false`, then `buf` must be
+# managed by the callback, by default `freebuf=true` and the buffer is
+# automatically released after callback completes.
+function _recv(cb::ReceiveCallback, srv::Server, params::String,
+               buf::Ptr{Byte}, len::Csize_t)
+    return cb.recv(cb.data, srv, params, buf, len)
 end
 
 _callback(::Void) = C_NULL
@@ -480,14 +506,13 @@ callback is used to send data to the requesting client and has the following
 signature:
 
 ```julia
-function sproc(data, xpa::XPA.Server, params::String,
-	       buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
+function sproc(data, srv::XPA.Server, params::String)
     println("send: \$params")
     result = ...
-    return XPA.setbuf!(xpa, result, true)
+    return XPA.setbuf!(srv, result)
 end
 
-function rproc(data, xpa::XPA.Server, params::String,
+function rproc(data, srv::XPA.Server, params::String,
 	       buf::Ptr{UInt8}, len::Integer)
     println("receive: \$params")
     arr = unsafe_wrap(buf, len, false)
@@ -529,6 +554,8 @@ function Server(class::AbstractString, name::AbstractString,
     ptr != C_NULL || error("failed to create an XPA server")
     obj = Server(ptr)
     finalizer(obj, close)
+    (get_send_mode(obj) & MODE_FREEBUF) != 0 ||
+        error("send mode must have `freebuf` option set")
     return obj
 end
 
@@ -556,60 +583,102 @@ const SUCCESS = Cint(0)
 const FAILURE = Cint(-1)
 
 # FIXME: check return value!
-seterror(xpa::Server, msg::AbstractString) =
-    ccall((:XPAError, libxpa), Cint, (Ptr{Void}, Cstring), xpa.ptr, msg)
+seterror(srv::Server, msg::AbstractString) =
+    ccall((:XPAError, libxpa), Cint, (Ptr{Void}, Cstring), srv.ptr, msg)
 
 # FIXME: check return value!
-setmessage(xpa::Server, msg::AbstractString) =
-    ccall((:XPAMessage, libxpa), Cint, (Ptr{Void}, Cstring), xpa.ptr, msg)
-
-function resetbuf!(buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
-    unsafe_store!(buf, Ptr{UInt8}(0))
-    unsafe_store!(len, 0)
-end
+setmessage(srv::Server, msg::AbstractString) =
+    ccall((:XPAMessage, libxpa), Cint, (Ptr{Void}, Cstring), srv.ptr, msg)
 
 """
 ```julia
-XPA.setbuf!(xpa, arg, cpy)
+XPA.setbuf!(bufptr, lenptr, data)
 ```
 
-set the buffer of the XPA server `xpa` to store the result of an XPAGet()
-request.
+or
+
+```julia
+XPA.setbuf!(bufptr, lenptr, buf, len)
+```
+
+set the values at addresses `bufptr` and `lenptr` to be the address and size of
+a dynamically allocated buffer storing the contents of `data` (or a copy of the
+`len` bytes at address `buf`).  This method is meant to be called by an XPA
+server to store the result of an `XPAGet()` request.
+
+The callback serving a send request should have the following structure:
+
+```julia
+function sendcallback(ctx::T, srv::XPA.Server, params::String,
+                      bufptr::Ptr{Ptr{UInt8}}, lenptr::Ptr{Csize_t})
+    result = ...
+    try
+        XPA.setbuf!(bufptr, lenptr, result)
+        return XPA.SUCCESS
+    catch err
+        error(srv, err)
+        return XPA.FAILURE
+    end
+end
+```
+
+with `ctx` the client data of the send callback, `srv` the XPA server serving
+the request, `params` the parameter list of the `XPAGet()` call, `bufptr` and
+`lenptr` the addresses where to store the result of the request and ist size
+(in bytes).
 
 """
-function setbuf!(xpa::Server, buf::Ptr{Void}, len::Integer, copy::Bool)
-    # Second argument of `XPASetBuf` is a `char*` but we just want to deal with
-    # an address.
-    if ccall((:XPASetBuf, libxpa), Cint,
-             (Ptr{Void}, Ptr{Void}, Csize_t, Cint),
-             xpa.ptr, buf, len, copy) != SUCCESS
-        error("illegal XPA server or insufficient memory")
+# FIXME: We are always assuming that the answer to a XPAGet request is a
+#        dynamically allocated buffer which is deleted by `XPAHandler`.
+#        We should make sure of that.
+function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
+                 ptr::Ptr{Byte}, len::Integer)
+    # This function is similar to `XPASetBuf` except that it verifies that no
+    # prior buffer has been set.
+    (unsafe_load(bufptr) == NULL && unsafe_load(lenptr) == 0) ||
+        error("setbuf! can be called only once")
+    if ptr != NULL
+        len > 0 || error("invalid number of bytes ($len) for non-NULL pointer")
+        buf = ccall(:malloc, Ptr{Byte}, (Csize_t,), len)
+        buf != NULL || throw(OutOfMemoryError())
+        ccall(:memcpy, Ptr{Byte}, (Ptr{Byte}, Ptr{Byte}, Csize_t,),
+              buf, ptr, len)
+        unsafe_store!(bufptr, buf)
+        unsafe_store!(lenptr, len)
+    else
+        len == 0 || error("invalid number of bytes ($len) for NULL pointer")
     end
-    nothing
+    return nothing
 end
 
-setbuf!(xpa::Server, ::Void, ::Bool) = setbuf!(xpa, C_NULL, 0, false)
+setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, ::Void) =
+    setbuf!(bufptr, lenptr, NULL, 0)
 
-function setbuf!(xpa::Server, str::AbstractString, copy::Bool)
-    copy == true || error("strings must be copied")
-    arr = push!(Vector{UInt8}(str), 0)
-    setbuf!(xpa, arr, sizeof(arr), copy)
+function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
+                 val::Union{Symbol,AbstractString})
+    return setbuf!(bufptr, lenptr, String(val))
 end
 
-function setbuf!(buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t},
-                 str::AbstractString, copy::Bool)
-    copy == true || error("strings must be copied")
-    arr = push!(Vector{UInt8}(str), 0)
-    unsafe_store!(buf, _copy(arr))
-    unsafe_store!(len, sizeof(arr))
-    nothing
+setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, str::String) =
+    setbuf!(bufptr, lenptr, Base.unsafe_convert(Ptr{Byte}, str), sizeof(str))
+
+function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
+                 arr::DenseArray{T,N}) where {T, N}
+    @assert isbits(T)
+    setbuf!(bufptr, lenptr, convert(Ptr{Byte}, pointer(arr)), sizeof(arr))
 end
 
-function setbuf!(buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t},
-                 arr::DenseArray{T,N}, copy::Bool) where {T, N}
-    unsafe_store!(buf, copy ? _copy(arr) : Ptr{UInt8}(pointer(arr)))
-    unsafe_store!(len, sizeof(arr))
-    nothing
+function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, val::T) where {T}
+    @assert isbits(T)
+    (unsafe_load(bufptr) == NULL && unsafe_load(lenptr) == 0) ||
+        error("setbuf! can be called only once")
+    len = sizeof(T)
+    buf = ccall(:malloc, Ptr{Byte}, (Csize_t,), len)
+    buf != NULL || throw(OutOfMemoryError())
+    unsafe_store!(convert(Ptr{T}, buf), val)
+    unsafe_store!(bufptr, buf)
+    unsafe_store!(lenptr, len)
+    return nothing
 end
 
 #------------------------------------------------------------------------------
@@ -626,8 +695,8 @@ converts a byte buffer into a Julia string.  If `ptr` is NULL, `def` is
 returned.
 
 """
-_get_string(ptr::Ptr{UInt8}, def::String = "") =
-    ptr == Ptr{UInt8}(0) ? def : unsafe_string(ptr)
+_get_string(ptr::Ptr{Byte}, def::String = "") =
+    ptr == NULL ? def : unsafe_string(ptr)
 
 """
 Private methods:
@@ -647,19 +716,61 @@ retrieve a field of type `T` at offset `off` (in bytes) with respect to address
 respect to which the second is applied.  If `ptr` is NULL, `def` is returned.
 
 """
-_get_field(::Type{T}, ptr::Ptr{Void}, offset::Int, def::T) where T =
-    ptr == C_NULL ? def : unsafe_load(Ptr{T}(ptr + offset))
+_get_field(::Type{T}, ptr::Ptr{Void}, off::Int, def::T) where T =
+    ptr == C_NULL ? def : unsafe_load(convert(Ptr{T}, ptr + off))
 
-_get_field(::Type{String}, ptr::Ptr{Void}, offset::Int, def::String) =
-    _get_string(ptr == C_NULL ? Ptr{UInt8}(0) :
-                unsafe_load(Ptr{Ptr{UInt8}}(ptr + offset)), def)
+_get_field(::Type{String}, ptr::Ptr{Void}, off::Int, def::String) =
+    _get_string(ptr == C_NULL ? NULL :
+                unsafe_load(convert(Ptr{Ptr{Byte}}, ptr + off)), def)
 
-function _get_field(::Type{T}, ptr::Ptr{Void}, offset1::Int, offset2::Int,
+function _get_field(::Type{T}, ptr::Ptr{Void}, off1::Int, off2::Int,
                     def::T) where T
-    _get_field(T, _get_field(Ptr{Void}, ptr, offset1, C_NULL), offset2, def)
+    _get_field(T, _get_field(Ptr{Void}, ptr, off1, C_NULL), off2, def)
 end
 
-include("getfields.jl")
+function _set_field(::Type{T}, ptr::Ptr{Void}, off::Int, val) where T
+    @assert ptr != C_NULL
+    unsafe_store!(convert(Ptr{T}, ptr + off), val)
+end
+
+include("constants.jl")
+
+_get_comm(xpa::Handle) =
+    _get_field(Ptr{Void}, xpa.ptr, _offsetof_comm, C_NULL)
+
+for (memb, T, def) in ((:name,      String, ""),
+                       (:class,     String, ""),
+                       (:send_mode, Cint,   Cint(0)),
+                       (:recv_mode, Cint,   Cint(0)),
+                       (:method,    String, ""),
+                       (:sendian,   String, "?"))
+    off = Symbol(:_offsetof_, memb)
+    func = Symbol(:get_, memb)
+    @eval begin
+        $func(xpa::Handle) = _get_field($T, xpa.ptr, $off, $def)
+    end
+end
+
+for (memb, T, def) in ((:comm_status,  Cint,       Cint(0)),
+                       (:comm_cmdfd,   Cint,       Cint(-1)),
+                       (:comm_datafd,  Cint,       Cint(-1)),
+                       (:comm_ack,     Cint,       Cint(1)),
+                       (:comm_cendian, String,     "?"),
+                       (:comm_buf,     Ptr{Byte},  NULL),
+                       (:comm_len,     Csize_t,    Csize_t(0)))
+    off = Symbol(:_offsetof_, memb)
+    func = Symbol(:get_, memb)
+    @eval begin
+        $func(xpa::Handle) = _get_field($T, _get_comm(xpa), $off, $def)
+    end
+    if memb == :comm_buf || memb == :comm_len
+        func = Symbol(:_set_, memb)
+        @eval begin
+            $func(xpa::Handle, val) =
+                unsafe_store!(convert(Ptr{$T}, _get_comm(xpa) + $off), val)
+        end
+    end
+end
 
 """
 
@@ -674,7 +785,7 @@ _fetch(ptr::Ptr{T}, nbytes::Integer) where T =
 _fetch(::Type{T}, ptr::Ptr, nbytes::Integer) where T =
     _fetch(convert(Ptr{T}, ptr), nbytes)
 
-_fetch(ptr::Ptr{Void}, nbytes::Integer) = _fetch(UInt8, ptr, nbytes)
+_fetch(ptr::Ptr{Void}, nbytes::Integer) = _fetch(Byte, ptr, nbytes)
 
 
 """
@@ -686,8 +797,8 @@ dynamically allocates `n` bytes and returns the corresponding byte pointer
 (type `Ptr{UInt8}`).
 
 """
-function _malloc(n::Integer) :: Ptr{UInt8}
-    ptr = ccall(:malloc, Ptr{UInt8}, (Csize_t,), n)
+function _malloc(n::Integer) :: Ptr{Byte}
+    ptr = ccall(:malloc, Ptr{Byte}, (Csize_t,), n)
     ptr != C_NULL || error("insufficient memory for $n byte(s)")
     return ptr
 end
@@ -711,8 +822,8 @@ copies `n` bytes from address `src` to `dst` and return `dst` as a byte pointer
 (type `Ptr{UInt8}`).
 
 """
-_memcpy!(dst::Ptr, src::Ptr, n::Integer) :: Ptr{UInt8} =
-    ccall(:memcpy, Ptr{UInt8}, (Ptr{Void}, Ptr{Void}, Csize_t), dst, src, n)
+_memcpy!(dst::Ptr, src::Ptr, n::Integer) :: Ptr{Byte} =
+    ccall(:memcpy, Ptr{Byte}, (Ptr{Void}, Ptr{Void}, Csize_t), dst, src, n)
 
 """
 ```julia
@@ -723,9 +834,9 @@ yields a dynamically allocated copy of `arg` in the form of a byte pointer
 (type `Ptr{UInt8}`).
 
 """
-_copy(str::AbstractString) = _copy(push!(Vector{UInt8}(str), 0))
+_copy(str::AbstractString) = _copy(push!(Vector{Byte}(str), 0))
 
-function _copy(arr::DenseArray) :: Ptr{UInt8}
+function _copy(arr::DenseArray) :: Ptr{Byte}
     n = sizeof(arr)
     return _memcpy!(_malloc(n), pointer(arr), n)
 end
