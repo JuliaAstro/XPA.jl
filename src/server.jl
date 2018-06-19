@@ -1,5 +1,5 @@
 #
-# client.jl --
+# server.jl --
 #
 # Implement XPA client methods.
 #
