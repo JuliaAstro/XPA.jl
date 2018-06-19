@@ -427,7 +427,7 @@ Also see: [`XPA.Server`](@ref), [`XPA.mainloop`](@ref).
 """
 poll(sec::Real, maxreq::Integer) =
     ccall((:XPAPoll, libxpa), Cint, (Cint, Cint),
-          (sec < 0 ? -1 : round(Cint, sec/1000)), maxreq)
+          (sec < 0 ? -1 : round(Cint, 1E3*sec)), maxreq)
 
 """
 ```julia
