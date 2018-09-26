@@ -9,8 +9,6 @@
 # Copyright (C) 2016-2019, Éric Thiébaut (https://github.com/emmt/XPA.jl).
 #
 
-isdefined(Base, :__precompile__) && __precompile__(true)
-
 module XPA
 
 export
