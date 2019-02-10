@@ -72,7 +72,7 @@ For each client request, XPA is able to automatically establish a temporary
 connection to the server.  This however implies some overheads and, to speed up
 the connection, a persistent XPA client can be created by calling
 `XPA.Client()` which returns an opaque object.  The connection is automatically
-shutdown and related ressoruces freed when the client object is garbage
+shutdown and related resources freed when the client object is garbage
 collected.  The `close()` method can also by applied to the client object, in
 that case all subsequent requests with the object will establish a (slow)
 temporary connection.
