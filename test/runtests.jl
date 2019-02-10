@@ -16,7 +16,7 @@ import Base: RefValue
 const VERBOSE = false
 
 function sproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
-               bufptr::Ptr{Ptr{UInt8}}, lenptr::Ptr{Csize_t})
+                bufptr::Ptr{Ptr{UInt8}}, lenptr::Ptr{Csize_t})
     if running[]
         VERBOSE && println("send: $params")
         result = 42
@@ -36,7 +36,7 @@ function rproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
     status = XPA.SUCCESS
     if running[]
         VERBOSE && println("receive: $params [$len byte(s)]")
-        #arr = unsafe_wrap(buf, len, false)
+        #arr = unsafe_wrap(Array, buf, len, own=false)
         if params == "quit"
             running[] = false
         elseif params == "greetings"
@@ -57,7 +57,7 @@ function main1()
     close(server)
 end
 
-function sproc2(::Void, srv::XPA.Server, params::String,
+function sproc2(::Nothing, srv::XPA.Server, params::String,
                 bufptr::Ptr{Ptr{UInt8}}, lenptr::Ptr{Csize_t})
     VERBOSE && println("send: $params")
     result = 42
@@ -70,7 +70,7 @@ function sproc2(::Void, srv::XPA.Server, params::String,
     end
 end
 
-function rproc2(::Void, srv::XPA.Server, params::String,
+function rproc2(::Nothing, srv::XPA.Server, params::String,
                 buf::Ptr{UInt8}, len::Integer)
 
     status = XPA.SUCCESS

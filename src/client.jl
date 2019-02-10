@@ -6,7 +6,7 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
+# Copyright (C) 2016-2019, Éric Thiébaut (https://github.com/emmt/XPA.jl).
 #
 
 """
@@ -35,11 +35,9 @@ See also: [`XPA.set`](@ref), [`XPA.get`](@ref)
 function Client()
     # The argument of XPAOpen is currently ignored (it is reserved for future
     # use).
-    ptr = ccall((:XPAOpen, libxpa), Ptr{Void}, (Ptr{Void},), C_NULL)
+    ptr = ccall((:XPAOpen, libxpa), Ptr{Cvoid}, (Ptr{Cvoid},), C_NULL)
     ptr != C_NULL || error("failed to create a persistent XPA connection")
-    obj = Client(ptr)
-    finalizer(obj, close)
-    return obj
+    return finalizer(close, Client(ptr))
 end
 
 Base.isopen(xpa::Handle) = xpa.ptr != C_NULL
@@ -47,7 +45,7 @@ Base.isopen(xpa::Handle) = xpa.ptr != C_NULL
 function Base.close(xpa::Client)
     if (ptr = xpa.ptr) != C_NULL
         xpa.ptr = C_NULL
-        ccall((:XPAClose, libxpa), Void, (Ptr{Void},), ptr)
+        ccall((:XPAClose, libxpa), Cvoid, (Ptr{Cvoid},), ptr)
     end
     return nothing
 end
@@ -59,17 +57,17 @@ XPA.list(xpa=XPA.TEMPORARY)
 
 yields a list of available XPA access points.  Optional argument `xpa` is a
 persistent XPA client connection; if omitted, a temporary client connection
-will be created.  The result is a vector of `AccessPoint` instances.
+will be created.  The result is a vector of `XPA.AccessPoint` instances.
 
 Also see: [`XPA.Client`](@ref).
 
 """
 function list(xpa::Client = TEMPORARY)
-    lst = Array{AccessPoint}(0)
+    lst = AccessPoint[]
     for str in get_lines(xpa, "xpans")
         arr = split(str)
         if length(arr) != 5
-            warn("expecting 5 fields per access point (\"$str\")")
+            @warn "expecting 5 fields per access point (\"$str\")"
             continue
         end
         access = UInt(0)
@@ -81,7 +79,7 @@ function list(xpa::Client = TEMPORARY)
             elseif c == 'i'
                 access |= INFO
             else
-                warn("unexpected access string (\"$(arr[3])\")")
+                @warn "unexpected access string (\"$(arr[3])\")"
                 continue
             end
         end
@@ -100,10 +98,10 @@ template name, a `host:port` string or the name of a Unix socket file) with
 parameters `params` (automatically converted into a single string where the
 parameters are separated by a single space).  The result is a tuple of tuples
 `(data,name,mesg)` where `data` is a vector of bytes (`UInt8`), `name` is a
-string identifying the server which answered the request and `mesg` is an error
-message (a zero-length string `""` if there are no errors).  Optional argument
-`xpa` specifies an XPA handle (created by `XPA.Client()`) for faster
-connections.
+string identifying the server which answered the request and `mesg` is a
+textual message (a zero-length string `""` if there are no messages).  Optional
+argument `xpa` specifies an XPA handle (created by [`XPA.Client`](@ref)) for
+faster connections.
 
 The following keywords are available:
 
@@ -118,21 +116,21 @@ See also: [`XPA.Client`](@ref), [`XPA.set`](@ref).
 function get(xpa::Client, apt::AbstractString, params::AbstractString...;
              mode::AbstractString = "", nmax::Integer = 1)
     if nmax == -1
-        nmax = config("XPA_MAXHOSTS")
+        nmax = getconfig("XPA_MAXHOSTS")
     end
-    bufs = Array{Ptr{Byte}}(nmax)
-    lens = Array{Csize_t}(nmax)
-    names = Array{Ptr{Byte}}(nmax)
-    errs = Array{Ptr{Byte}}(nmax)
+    bufs = Array{Ptr{Byte}}(undef, nmax)
+    lens = Array{Csize_t}(undef, nmax)
+    names = Array{Ptr{Byte}}(undef, nmax)
+    errs = Array{Ptr{Byte}}(undef, nmax)
     n = ccall((:XPAGet, libxpa), Cint,
-              (Ptr{Void}, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
+              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
                Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
               xpa.ptr, apt, join(params, " "), mode,
               bufs, lens, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPAGet")
     return ntuple(i -> (_fetch(bufs[i], lens[i]),
                         _fetch(String, names[i]),
-                        _fetch(String, errs[i])), n)
+                        _fetch(String,  errs[i])), n)
 end
 
 get(args::AbstractString...; kwds...) =
@@ -144,14 +142,16 @@ Private method `_fetch(...)` converts a pointer into a Julia vector or a
 string and let Julia manage the memory.
 
 """
-_fetch(ptr::Ptr{T}, nbytes::Integer) where T =
-    (ptr == convert(Ptr{T}, 0) ? Array{T}(0) :
-     unsafe_wrap(Array, ptr, div(nbytes, sizeof(T)), true))
+function _fetch(ptr::Ptr{T}, nbytes::Integer)::Vector{T} where {T}
+    return (ptr == convert(Ptr{T}, 0)
+            ? Vector{T}(undef, 0)
+            : unsafe_wrap(Array, ptr, div(nbytes, sizeof(T)), own=true))
+end
 
-_fetch(::Type{T}, ptr::Ptr, nbytes::Integer) where T =
+_fetch(::Type{T}, ptr::Ptr, nbytes::Integer) where {T} =
     _fetch(convert(Ptr{T}, ptr), nbytes)
 
-_fetch(ptr::Ptr{Void}, nbytes::Integer) = _fetch(Byte, ptr, nbytes)
+_fetch(ptr::Ptr{Cvoid}, nbytes::Integer) = _fetch(Byte, ptr, nbytes)
 
 function _fetch(::Type{String}, ptr::Ptr{Byte})
     if ptr == NULL
@@ -178,7 +178,7 @@ end
 XPA.get_bytes([xpa,] apt [, params...]; mode=...) -> buf
 ```
 
-yields the `data` part of the answers received by an `XPA.get` request as a
+yields the `data` part of the answer received by an `XPA.get` request as a
 vector of bytes.  Arguments `xpa`, `apt` and `params...` and keyword `mode` are
 passed to `XPA.get` limiting the number of answers to be at most one.  An error
 is thrown if `XPA.get` returns a non-empty error message.
@@ -186,16 +186,14 @@ is thrown if `XPA.get` returns a non-empty error message.
 See also: [`XPA.get`](@ref).
 
 """
-function get_bytes(args...; kwds...)
+function get_bytes(args...; kwds...)::Vector{Byte}
     tup = get(args...; nmax=1, kwds...)
-    local data::Vector{Byte}
     if length(tup) ≥ 1
         (data, name, mesg) = tup[1]
         length(mesg) > 0 && error(mesg)
-    else
-        data = Array{Byte}(0)
+        return data
     end
-    return data
+    return Byte[]
 end
 
 """
@@ -213,17 +211,17 @@ get_text(args...; kwds...) =
 
 """
 ```julia
-XPA.get_lines([xpa,] apt [, params...]; keep=false, mode=...) -> arr
+XPA.get_lines([xpa,] apt [, params...]; keepempty=false, mode=...) -> arr
 ```
 
 splits the result of `XPA.get_text` into an array of strings, one for each
-line.  Keyword `keep` can be set `true` to keep empty lines.
+line.  Keyword `keepempty` can be set `true` to keep empty lines.
 
 See also: [`XPA.get_text`](@ref).
 
 """
-get_lines(args...; keep::Bool = false, kwds...) =
-    split(chomp(get_text(args...; kwds...)), r"\n|\r\n?", keep=keep)
+get_lines(args...; keepempty::Bool = false, kwds...) =
+    split(chomp(get_text(args...; kwds...)), r"\n|\r\n?", keepempty=keepempty)
 
 """
 ```julia
@@ -236,7 +234,7 @@ See also: [`XPA.get_text`](@ref).
 
 """
 get_words(args...; kwds...) =
-    split(get_text(args...; kwds...), r"[ \t\n\r]+", keep=false)
+    split(get_text(args...; kwds...), r"[ \t\n\r]+", keepempty=false)
 
 """
 ```julia
@@ -249,7 +247,7 @@ parameters are separated by a single space).  The result is a tuple of tuples
 `(name,mesg)` where `name` is a string identifying the server which received
 the request and `mesg` is an error message (a zero-length string `""` if there
 are no errors).  Optional argument `xpa` specifies an XPA handle (created by
-`XPA.Client()`) for faster connections.
+[`XPA.Client`](@ref)) for faster connections.
 
 The following keywords are available:
 
@@ -270,32 +268,32 @@ See also: [`XPA.Client`](@ref), [`XPA.get`](@ref).
 
 """
 function set(xpa::Client, apt::AbstractString, params::AbstractString...;
-             data::Union{DenseArray,Void} = nothing,
+             data::Union{DenseArray,Nothing} = nothing,
              mode::AbstractString = "",
              nmax::Integer = 1,
              check::Bool = false)
     local buf::Ptr, len::Int
-    if isa(data, Void)
+    if data === nothing
         buf = C_NULL
         len = 0
     else
-        @assert isbits(eltype(data))
+        @assert isbitstype(eltype(data))
         buf = pointer(data)
         len = sizeof(data)
     end
     if nmax == -1
-        nmax = config("XPA_MAXHOSTS")
+        nmax = getconfig("XPA_MAXHOSTS")
     end
-    names = Array{Ptr{Byte}}(nmax)
-    errs = Array{Ptr{Byte}}(nmax)
+    names = Array{Ptr{Byte}}(undef, nmax)
+    errs = Array{Ptr{Byte}}(undef, nmax)
     n = ccall((:XPASet, libxpa), Cint,
-              (Ptr{Void}, Cstring, Cstring, Cstring, Ptr{Void},
+              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Cvoid},
                Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
               xpa.ptr, apt, join(params, " "), mode,
               buf, len, names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPASet")
     tup = ntuple(i -> (_fetch(String, names[i]),
-                       _fetch(String, errs[i])), n)
+                       _fetch(String,  errs[i])), n)
     if check
         for (name, mesg) in tup
             if length(mesg) ≥ 9 && mesg[1:9] == "XPA\$ERROR"

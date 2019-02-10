@@ -6,13 +6,13 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
+# Copyright (C) 2016-2019, Éric Thiébaut (https://github.com/emmt/XPA.jl).
 #
 
 # We must make sure that the `send` and `recv` callbacks exist during the life
-# of the server.  To tha end, we use the following dictionary to maintain
+# of the server.  To that end, we use the following dictionary to maintain
 # references to callbacks while they are used by an XPA server.
-const _SERVERS = Dict{Ptr{Void},Any}()
+const _SERVERS = Dict{Ptr{Cvoid},Any}()
 
 """
 ```julia
@@ -30,13 +30,14 @@ xpaget class:name -help
 ```
 
 Arguments `send` and `recv` are callbacks which will be called upon a client
-`XPA.get` or `XPA.set` respectively.  At most one callback may be `nothing`.
+[`XPA.get`](@ref) or [`XPA.set`](@ref) respectively.  At most one callback may
+be `nothing`.
 
 The send callback will be called in response to an external request from the
-`xpaget` program, the `XPAGet()` or `XPAGetFd()` C routines, or the `XPA.get`
-Julia method.  This callback is used to send data to the requesting client and
-is a combination of a function (`sfunc` below) and private data (`sdata` below)
-as summarized by the following typical example:
+`xpaget` program, the `XPAGet()` or `XPAGetFd()` C routines, or the
+[`XPA.get`](@ref) Julia method.  This callback is used to send data to the
+requesting client and is a combination of a function (`sfunc` below) and
+private data (`sdata` below) as summarized by the following typical example:
 
 ```julia
 # Method to handle a send request:
@@ -72,7 +73,7 @@ client and is a combination of a function (`rfunc` below) and private data
 function rfunc(rdata::R, srv::XPA.Server, params::String,
                bufptr::Ptr{UInt8}, lenptr::Csize_t)
     println("receive: \$params")
-    arr = unsafe_wrap(buf, len, false)
+    arr = unsafe_wrap(Array, buf, len, own=false)
     ...
     return XPA.SUCCESS
 end
@@ -96,8 +97,8 @@ Also see: [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.setbuf!`](@ref),
 function Server(class::AbstractString,
                 name::AbstractString,
                 help::AbstractString,
-                send::Union{SendCallback, Void},
-                recv::Union{ReceiveCallback, Void})
+                send::Union{SendCallback, Nothing},
+                recv::Union{ReceiveCallback, Nothing})
     # Create an XPA server and a reference to the callback objects to make
     # sure they are not garbage collected while the server is running.
     server = Server(class, name, help,
@@ -109,30 +110,29 @@ end
 
 function Server(class::AbstractString, name::AbstractString,
                 help::AbstractString,
-                sproc::Ptr{Void}, sdata::Ptr{Void}, smode::AbstractString,
-                rproc::Ptr{Void}, rdata::Ptr{Void}, rmode::AbstractString)
-    ptr = ccall((:XPANew, libxpa), Ptr{Void},
+                sproc::Ptr{Cvoid}, sdata::Ptr{Cvoid}, smode::AbstractString,
+                rproc::Ptr{Cvoid}, rdata::Ptr{Cvoid}, rmode::AbstractString)
+    ptr = ccall((:XPANew, libxpa), Ptr{Cvoid},
                 (Cstring, Cstring, Cstring,
-	         Ptr{Void}, Ptr{Void}, Cstring,
-	         Ptr{Void}, Ptr{Void}, Cstring),
+	         Ptr{Cvoid}, Ptr{Cvoid}, Cstring,
+	         Ptr{Cvoid}, Ptr{Cvoid}, Cstring),
                 class, name, help,
                 sproc, sdata, smode,
                 rproc, rdata, rmode)
     ptr != C_NULL || error("failed to create an XPA server")
-    obj = Server(ptr)
-    finalizer(obj, close)
+    obj = finalizer(close, Server(ptr))
     (get_send_mode(obj) & MODE_FREEBUF) != 0 ||
         error("send mode must have `freebuf` option set")
     return obj
 end
 
 # The following methods are helpers to build instances of an XPA server.
-_callback(::Void) = C_NULL
+_callback(::Nothing) = C_NULL
 _callback(::SendCallback) = _SEND_REF[]
 _callback(::ReceiveCallback) = _RECV_REF[]
-_context(::Void) = C_NULL
+_context(::Nothing) = C_NULL
 _context(cb::Callback) = pointer_from_objref(cb)
-_mode(::Void) = ""
+_mode(::Nothing) = ""
 _mode(cb::SendCallback) = "acl=$(cb.acl),freebuf=$(cb.freebuf)"
 _mode(cb::ReceiveCallback) =
     "acl=$(cb.acl),buf=$(cb.buf),fillbuf=$(cb.fillbuf),freebuf=$(cb.freebuf)"
@@ -141,7 +141,7 @@ _mode(cb::ReceiveCallback) =
 function Base.close(srv::Server)
     if (ptr = srv.ptr) != C_NULL
         srv.ptr = C_NULL
-        ccall((:XPAFree, libxpa), Cint, (Ptr{Void},), ptr)
+        ccall((:XPAFree, libxpa), Cint, (Ptr{Cvoid},), ptr)
         haskey(_SERVERS, ptr) && pop!(_SERVERS, ptr)
     end
     return nothing
@@ -196,28 +196,8 @@ function ReceiveCallback(func::Function,
     ReceiveCallback{T}(func, data, acl, buf, fillbuf, freebuf)
 end
 
-# Addresses of callbacks cannot be precompiled so we set them at run time in
-# the __init__() method of the module.
-const _SEND_REF = Ref{Ptr{Void}}(0)
-const _RECV_REF = Ref{Ptr{Void}}(0)
-function __init__()
-    global _SEND_REF, _RECV_REF
-    _SEND_REF[] = cfunction(_send, Cint,
-                            (Ptr{Void},      # client_data
-                             Ptr{Void},      # call_data
-                             Ptr{Byte},      # paramlist
-                             Ptr{Ptr{Byte}}, # buf
-                             Ptr{Csize_t}))  # len
-    _RECV_REF[] = cfunction(_recv, Cint,
-                            (Ptr{Void},      # client_data
-                             Ptr{Void},      # call_data
-                             Ptr{Byte},      # paramlist
-                             Ptr{Byte},      # buf
-                             Csize_t))       # len
-end
-
-function _send(clientdata::Ptr{Void}, handle::Ptr{Void}, params::Ptr{Byte},
-               bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})
+function _send(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
+               bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})::Cint
     # Check assumptions.
     srv = Server(handle)
     (get_send_mode(srv) & MODE_FREEBUF) != 0 ||
@@ -237,8 +217,8 @@ end
 
 # The receive callback is executed in response to an external request from the
 # `xpaset` program, the `XPASet()` routine, or `XPASetFd()` routine.
-function _recv(clientdata::Ptr{Void}, handle::Ptr{Void}, params::Ptr{Byte},
-               buf::Ptr{Byte}, len::Csize_t)
+function _recv(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
+               buf::Ptr{Byte}, len::Csize_t)::Cint
     # Call actual callback providing the client data is the address of a known
     # ReceiveCallback object.
     return _recv(unsafe_pointer_to_objref(clientdata), Server(handle),
@@ -251,6 +231,26 @@ end
 function _recv(cb::ReceiveCallback, srv::Server, params::String,
                buf::Ptr{Byte}, len::Csize_t)
     return cb.recv(cb.data, srv, params, buf, len)
+end
+
+# Addresses of callbacks cannot be precompiled so we set them at run time in
+# the __init__() method of the module.
+const _SEND_REF = Ref{Ptr{Cvoid}}(0)
+const _RECV_REF = Ref{Ptr{Cvoid}}(0)
+function __init__()
+    global _SEND_REF, _RECV_REF
+    _SEND_REF[] = @cfunction(_send, Cint,
+                             (Ptr{Cvoid},     # client_data
+                              Ptr{Cvoid},     # call_data
+                              Ptr{Byte},      # paramlist
+                              Ptr{Ptr{Byte}}, # buf
+                              Ptr{Csize_t}))  # len
+    _RECV_REF[] = @cfunction(_recv, Cint,
+                             (Ptr{Cvoid},     # client_data
+                              Ptr{Cvoid},     # call_data
+                              Ptr{Byte},      # paramlist
+                              Ptr{Byte},      # buf
+                              Csize_t))       # len
 end
 
 """
@@ -267,7 +267,7 @@ Also see: [`XPA.Server`](@ref), [`XPA.message`](@ref),
 
 """
 function Base.error(srv::Server, msg::AbstractString)
-    ccall((:XPAError, libxpa), Cint, (Ptr{Void}, Cstring),
+    ccall((:XPAError, libxpa), Cint, (Ptr{Cvoid}, Cstring),
           srv.ptr, msg) == SUCCESS ||
               error("XPAError failed for message \"$msg\"");
     return FAILURE
@@ -287,7 +287,7 @@ Also see: [`XPA.Server`](@ref), [`XPA.error`](@ref),
 
 """
 message(srv::Server, msg::AbstractString) =
-    ccall((:XPAMessage, libxpa), Cint, (Ptr{Void}, Cstring), srv.ptr, msg)
+    ccall((:XPAMessage, libxpa), Cint, (Ptr{Cvoid}, Cstring), srv.ptr, msg)
 
 """
 ```julia
@@ -310,11 +310,12 @@ allocated buffer which is deleted by `XPAHandler`.
 
 See also: [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref), [`XPA.get`](@ref).
 """
-# FIXME: We are always assuming that the answer to a XPAGet request is a
-#        dynamically allocated buffer which is deleted by `XPAHandler`.
-#        We should make sure of that.
 function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
                  ptr::Ptr{Byte}, len::Integer)
+    # FIXME: We are always assuming that the answer to a XPAGet request is a
+    #        dynamically allocated buffer which is deleted by `XPAHandler`.  We
+    #        should make sure of that.
+
     # This function is similar to `XPASetBuf` except that it verifies that no
     # prior buffer has been set.
     (unsafe_load(bufptr) == NULL && unsafe_load(lenptr) == 0) ||
@@ -330,7 +331,7 @@ function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
     return nothing
 end
 
-setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, ::Void) =
+setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, ::Nothing) =
     setbuf!(bufptr, lenptr, NULL, 0)
 
 function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
@@ -343,12 +344,12 @@ setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, str::String) =
 
 function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
                  arr::DenseArray{T,N}) where {T, N}
-    @assert isbits(T)
+    @assert isbitstype(T)
     setbuf!(bufptr, lenptr, convert(Ptr{Byte}, pointer(arr)), sizeof(arr))
 end
 
 function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, val::T) where {T}
-    @assert isbits(T)
+    @assert isbitstype(T)
     (unsafe_load(bufptr) == NULL && unsafe_load(lenptr) == 0) ||
         error("setbuf! can be called only once")
     len = sizeof(T)
@@ -442,8 +443,8 @@ In the following example, the receive callback function close the server when
 it receives a `"quit"` command:
 
 ```julia
-function rproc(::Void, srv::XPA.Server, params::String,
-                   buf::Ptr{UInt8}, len::Integer)
+function rproc(::Nothing, srv::XPA.Server, params::String,
+               buf::Ptr{UInt8}, len::Integer)
     status = XPA.SUCCESS
     if params == "quit"
         close(srv)

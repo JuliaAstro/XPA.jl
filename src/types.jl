@@ -6,23 +6,23 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
+# Copyright (C) 2016-2019, Éric Thiébaut (https://github.com/emmt/XPA.jl).
 #
 
 const Byte = UInt8
-const NULL = convert(Ptr{Byte}, 0)
+const NULL = Ptr{Byte}(0)
 
 # Super type for client and server XPA objects.
 abstract type Handle end
 
 # XPA client, must be mutable to be finalized.
 mutable struct Client <: Handle
-    ptr::Ptr{Void} # pointer to XPARec structure
+    ptr::Ptr{Cvoid} # pointer to XPARec structure
 end
 
 # XPA server, must be mutable to be finalized.
 mutable struct Server <: Handle
-    ptr::Ptr{Void} # pointer to XPARec structure
+    ptr::Ptr{Cvoid} # pointer to XPARec structure
 end
 
 abstract type Callback end

@@ -6,11 +6,19 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
+# Copyright (C) 2016-2019, Éric Thiébaut (https://github.com/emmt/XPA.jl).
 #
+
+isdefined(Base, :__precompile__) && __precompile__(true)
+
 module XPA
 
-const libxpa = "libxpa."*Libdl.dlext
+using Base: ENV
+using Compat
+using Compat: @warn
+import Compat.Libdl
+
+include("../deps/deps.jl")
 
 include("constants.jl")
 include("types.jl")
