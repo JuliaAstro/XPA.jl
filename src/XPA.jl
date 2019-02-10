@@ -14,9 +14,6 @@ isdefined(Base, :__precompile__) && __precompile__(true)
 module XPA
 
 using Base: ENV
-using Compat
-using Compat: @warn
-import Compat.Libdl
 
 include("../deps/deps.jl")
 
