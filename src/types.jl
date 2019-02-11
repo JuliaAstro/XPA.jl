@@ -51,3 +51,26 @@ struct AccessPoint
     user::String  # user name of access point owner
     access::UInt  # allowed access
 end
+
+"""
+```julia
+buf = Buffer(data)
+```
+
+yields an object `obj` which represents the contents of `data` which can be
+[`nothing`](@ref), a dense array or a string.  If `data` is an array `obj`
+holds a reference on `data`.  If `data` is a string, `obj` holds a temporary
+byte buffer where the string is copied.  The object `obj` can be used to pass
+some data to `ccall` whithout without the risk of having the data garbage
+collected.
+
+Standard methods [`pointer`](@ref) and [`sizeof`](@ref) can be applied to `obj`
+and `convert(Ptr{Cvoid},obj)` can also be used.
+
+See also [`XPA.set`](@ref).
+
+"""
+struct Buffer{T}
+    data::T
+    Buffer{T}(data::T) where {T} = new{T}(data)
+end

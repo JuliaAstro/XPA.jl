@@ -251,9 +251,9 @@ are no errors).  Optional argument `xpa` specifies an XPA handle (created by
 
 The following keywords are available:
 
-* `data` specifies the data to send, may be `nothing` or an array.  If it is an
-  array, it must be an instance of a sub-type of `DenseArray` which implements
-  the `pointer` and `sizeof` methods.
+* `data` specifies the data to send, may be `nothing`, an array or a string.
+  If it is an array, it must be an instance of a sub-type of `DenseArray` which
+  implements the `pointer` and `sizeof` methods.
 
 * `nmax` specifies the maximum number of recipients, `nmax=1` by default.
   Specify `nmax=-1` to use the maximum possible number of XPA hosts.
@@ -268,19 +268,11 @@ See also: [`XPA.Client`](@ref), [`XPA.get`](@ref).
 
 """
 function set(xpa::Client, apt::AbstractString, params::AbstractString...;
-             data::Union{DenseArray,Nothing} = nothing,
+             data = nothing,
              mode::AbstractString = "",
              nmax::Integer = 1,
              check::Bool = false)
-    local buf::Ptr, len::Int
-    if data === nothing
-        buf = C_NULL
-        len = 0
-    else
-        @assert isbitstype(eltype(data))
-        buf = pointer(data)
-        len = sizeof(data)
-    end
+    buf = Buffer(data)
     if nmax == -1
         nmax = getconfig("XPA_MAXHOSTS")
     end
@@ -290,7 +282,7 @@ function set(xpa::Client, apt::AbstractString, params::AbstractString...;
               (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Cvoid},
                Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
               xpa.ptr, apt, join(params, " "), mode,
-              buf, len, names, errs, nmax)
+              pointer(buf), sizeof(buf), names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPASet")
     tup = ntuple(i -> (_fetch(String, names[i]),
                        _fetch(String,  errs[i])), n)
@@ -306,3 +298,34 @@ end
 
 set(args::AbstractString...; kwds...) =
     set(TEMPORARY, args...; kwds...)
+
+# Check alignment.
+Base.convert(::Type{Ptr{Cvoid}}, buf::Buffer{Nothing}) = Ptr{Cvoid}(0)
+Base.convert(::Type{Ptr{Cvoid}}, buf::Buffer{DenseArray}) = Ptr{Cvoid}(pointer(buf))
+Base.convert(::Type{Ptr{T}}, buf::Buffer{Nothing}) where {T} = Ptr{T}(0)
+Base.convert(::Type{Ptr{T}}, buf::Buffer{<:DenseArray{T}}) where {T} = pointer(buf)
+Base.convert(::Type{Ptr{UInt8}}, buf::Buffer{DenseArray}) = Ptr{UInt8}(pointer(buf))
+Base.convert(::Type{Ptr{Int8}}, buf::Buffer{DenseArray}) = Ptr{Int8}(pointer(buf))
+
+Base.pointer(buf::Buffer{Nothing}) = C_NULL
+Base.pointer(buf::Buffer{<:DenseArray}) = pointer(buf.data)
+
+Base.sizeof(buf::Buffer{Nothing}) = 0
+Base.sizeof(buf::Buffer{<:DenseArray}) = sizeof(buf.data)
+
+Buffer(::Nothing) = Buffer{Nothing}(nothing)
+
+function Buffer(arr::T) where {T<:DenseArray}
+    @assert isbitstype(eltype(arr))
+    return Buffer{T}(arr)
+end
+
+function Buffer(str::AbstractString)
+    @assert isascii(str)
+    len = length(str)
+    buf = Vector{Cchar}(undef, len)
+    @inbounds for i in 1:len
+        buf[i] = str[i]
+    end
+    return Buffer(buf)
+end
