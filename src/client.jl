@@ -299,13 +299,21 @@ end
 set(args::AbstractString...; kwds...) =
     set(TEMPORARY, args...; kwds...)
 
-# Check alignment.
-Base.convert(::Type{Ptr{Cvoid}}, buf::Buffer{Nothing}) = Ptr{Cvoid}(0)
-Base.convert(::Type{Ptr{Cvoid}}, buf::Buffer{DenseArray}) = Ptr{Cvoid}(pointer(buf))
-Base.convert(::Type{Ptr{T}}, buf::Buffer{Nothing}) where {T} = Ptr{T}(0)
-Base.convert(::Type{Ptr{T}}, buf::Buffer{<:DenseArray{T}}) where {T} = pointer(buf)
-Base.convert(::Type{Ptr{UInt8}}, buf::Buffer{DenseArray}) = Ptr{UInt8}(pointer(buf))
-Base.convert(::Type{Ptr{Int8}}, buf::Buffer{DenseArray}) = Ptr{Int8}(pointer(buf))
+# FIXME: Check alignment before converting to a pointer of a given type.
+#
+# Extend `unsafe_convert` for `ccall`.  According to `cconvert doc.`, neither
+# `convert` nor `cconvert` should take a Julia object and turn it into a `Ptr`.
+Base.unsafe_convert(::Type{Ptr{T}}, buf::Buffer{Nothing}) where {T} = Ptr{T}(0)
+Base.unsafe_convert(::Type{Ptr{T}}, buf::Buffer{<:DenseArray{T}}) where {T} =
+    pointer(buf)
+for T in (Cvoid, Int8, UInt8)
+    @eval Base.unsafe_convert(::Type{Ptr{$T}}, buf::Buffer{<:DenseArray}) =
+        Ptr{$T}(pointer(buf))
+    if T !== Cvoid
+        @eval Base.unsafe_convert(::Type{Ptr{$T}}, buf::Buffer{<:DenseArray{$T}}) =
+            pointer(buf)
+    end
+end
 
 Base.pointer(buf::Buffer{Nothing}) = C_NULL
 Base.pointer(buf::Buffer{<:DenseArray}) = pointer(buf.data)
