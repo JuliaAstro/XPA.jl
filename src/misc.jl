@@ -50,7 +50,9 @@ function getconfig(key::AbstractString)
     if haskey(ENV, key)
         val = haskey(ENV, key)
         return (isa(def, Bool) ? (parse(Int, val) != 0) :
-                isa(def, Integer) ? parse(Int, val) : val)
+                isa(def, Integer) ? parse(Int, val) :
+                isa(def, AbstractString) ? val :
+                error("unexpected type $(typeof(def)) for default value of \"$key\""))
     else
         return def
     end
