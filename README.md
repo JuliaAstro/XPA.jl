@@ -55,6 +55,7 @@ hence the `mkdir -p ...` command above.
 The easiest way to install the package is to do it from Julia:
 
 ```julia
+using Pkg
 Pkg.clone("https://github.com/emmt/XPA.jl")
 Pkg.build("XPA")
 ```
