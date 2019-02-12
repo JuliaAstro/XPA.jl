@@ -128,9 +128,9 @@ function _get(xpa::Client, apt::AbstractString, params::AbstractString,
     nams = Vector{Ptr{Byte}}(undef, nmax)
     errs = Vector{Ptr{Byte}}(undef, nmax)
     n = ccall((:XPAGet, libxpa), Cint,
-              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
+              (Client, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
                Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-              xpa.ptr, apt, params, mode, bufs, lens, nams, errs, nmax)
+              xpa, apt, params, mode, bufs, lens, nams, errs, nmax)
     n ≥ 0 || error("unexpected result from XPAGet")
     return ntuple(i -> (_fetch(bufs[i], lens[i]),
                         _fetch(String,  nams[i]),
@@ -314,9 +314,9 @@ function _set(xpa::Client, apt::AbstractString, params::AbstractString,
     names = Vector{Ptr{Byte}}(undef, nmax)
     errs = Vector{Ptr{Byte}}(undef, nmax)
     n = ccall((:XPASet, libxpa), Cint,
-              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Cvoid},
+              (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
                Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-              xpa.ptr, apt, params, mode, data, sizeof(data),
+              xpa, apt, params, mode, data, sizeof(data),
               names, errs, nmax)
     n ≥ 0 || error("unexpected result from XPASet")
     return ntuple(i -> (_fetch(String, names[i]),

@@ -267,8 +267,8 @@ Also see: [`XPA.Server`](@ref), [`XPA.message`](@ref),
 
 """
 function Base.error(srv::Server, msg::AbstractString)
-    ccall((:XPAError, libxpa), Cint, (Ptr{Cvoid}, Cstring),
-          srv.ptr, msg) == SUCCESS ||
+    ccall((:XPAError, libxpa), Cint, (Server, Cstring),
+          srv, msg) == SUCCESS ||
               error("XPAError failed for message \"$msg\"");
     return FAILURE
 end
@@ -287,7 +287,7 @@ Also see: [`XPA.Server`](@ref), [`XPA.error`](@ref),
 
 """
 message(srv::Server, msg::AbstractString) =
-    ccall((:XPAMessage, libxpa), Cint, (Ptr{Cvoid}, Cstring), srv.ptr, msg)
+    ccall((:XPAMessage, libxpa), Cint, (Server, Cstring), srv, msg)
 
 """
 ```julia
