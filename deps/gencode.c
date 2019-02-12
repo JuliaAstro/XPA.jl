@@ -9,6 +9,7 @@
  * Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <xpa.h>
 
@@ -29,12 +30,27 @@ int main(int argc, char* argv[])
 {
   FILE* output = stdout;
 
+  fprintf(output,
+          "# This file has been automatically generated, do not edit it\n"
+          "# but rather run `make deps.jl` from the shell or execute\n"
+          "# `Pkg.build(\"XPA\") from julia.\n");
+
+  /*
+   * Basic check, also makes sure the executable is linked against the XPA
+   * library.
+   */
+  if (XPAClientValid(NULL) != 0) {
+    fprintf(stderr, "%s: unexpected failure of `XPAClientValid(NULL)`!\n",
+            argv[0]);
+    exit(1);
+  }
+
   fprintf(output, "\n");
   fprintf(output, "\"`XPA_VERSION` is the version of the XPA library.\"\n");
   fprintf(output, "const XPA_VERSION = v\"%s\"\n", XPA_VERSION);
 
   fprintf(output, "\n");
-  fprintf(output, "# Access mode bits for XPA requests.");
+  fprintf(output, "# Access mode bits for XPA requests.\n");
   fprintf(output, "const SET    = UInt(%d)\n", XPA_SET);
   fprintf(output, "const GET    = UInt(%d)\n", XPA_GET);
   fprintf(output, "const INFO   = UInt(%d)\n", XPA_INFO);

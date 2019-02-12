@@ -13,11 +13,17 @@ isdefined(Base, :__precompile__) && __precompile__(true)
 
 module XPA
 
+export
+    XPA_VERSION
+
 using Base: ENV
 
-include("../deps/deps.jl")
-
-include("constants.jl")
+# FIXME: constanst should be in deps.jl
+if isfile(joinpath(dirname(@__FILE__), "..", "deps", "deps.jl"))
+    include(joinpath("..", "deps", "deps.jl"))
+else
+    error("XPA not properly installed.  Please run Pkg.build(\"XPA\")")
+end
 include("types.jl")
 include("misc.jl")
 include("client.jl")

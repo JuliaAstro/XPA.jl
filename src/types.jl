@@ -12,6 +12,22 @@
 const Byte = UInt8
 const NULL = Ptr{Byte}(0)
 
+"""
+
+`XPA.SUCCESS` and `XPA.FAILURE` are the possible values returned by the
+callbacks of an XPA server.
+
+"""
+const SUCCESS = convert(Cint,  0)
+const FAILURE = convert(Cint, -1)
+@doc @doc(SUCCESS) FAILURE
+
+# Server mode flags for receive, send, info.
+const MODE_BUF     = convert(Cint, 1)
+const MODE_FILLBUF = convert(Cint, 2)
+const MODE_FREEBUF = convert(Cint, 4)
+const MODE_ACL     = convert(Cint, 8)
+
 # Super type for client and server XPA objects.
 abstract type Handle end
 
