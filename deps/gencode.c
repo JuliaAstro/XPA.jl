@@ -30,6 +30,29 @@ int main(int argc, char* argv[])
   FILE* output = stdout;
 
   fprintf(output, "\n");
+  fprintf(output, "\"`XPA_VERSION` is the version of the XPA library.\"\n");
+  fprintf(output, "const XPA_VERSION = v\"%s\"\n", XPA_VERSION);
+
+  fprintf(output, "\n");
+  fprintf(output, "# Access mode bits for XPA requests.");
+  fprintf(output, "const SET    = UInt(%d)\n", XPA_SET);
+  fprintf(output, "const GET    = UInt(%d)\n", XPA_GET);
+  fprintf(output, "const INFO   = UInt(%d)\n", XPA_INFO);
+  fprintf(output, "const ACCESS = UInt(%d)\n", XPA_ACCESS);
+
+#if 0 /* not yet needed */
+  fprintf(output, "\n");
+  fprintf(output, "# Comm modes.\n");
+  fprintf(output, "const COMM_RESERVED = Cint(%d)\n", COMM_RESERVED);
+  fprintf(output, "const COMM_CONNECT  = Cint(%d)\n", COMM_CONNECT);
+#endif
+
+  fprintf(output, "\n");
+  fprintf(output, "# Sizes.\n");
+  fprintf(output, "const SZ_LINE = %d\n", SZ_LINE);
+  fprintf(output, "const XPA_NAMELEN = %d\n", XPA_NAMELEN);
+
+  fprintf(output, "\n");
   fprintf(output, "# Field offsets in main XPARec structure.\n");
   DEF_OFFSETOF("class    ", XPARec, xclass);
   DEF_OFFSETOF("name     ", XPARec, name);
