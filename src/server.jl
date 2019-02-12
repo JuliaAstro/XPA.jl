@@ -415,7 +415,7 @@ ispolling() = (isdefined(__timer, 1) && isopen(__timer[]))
 
 resume() =
     if ! ispolling()
-        __timer[] = Timer((tm) -> XPA.poll(0, 0), 0.0, 0.1)
+        __timer[] = Timer((tm) -> XPA.poll(0, 0), 0.0, interval=0.1)
     end
 
 suspend() =
