@@ -13,6 +13,8 @@ compiled XPA library.
 
 ## Prerequisites and installation
 
+### Installation of the XPA library
+
 To use this package, **XPA** must be installed on your computer.
 If this is not the case, they are available for different operating systems.
 For example, on Ubuntu, just do:
@@ -20,6 +22,35 @@ For example, on Ubuntu, just do:
 ```sh
 sudo apt-get install xpa-tools libxpa-dev
 ```
+
+If XPA is not provided by your system, you may install it manually.  That's
+easy but make sure that you compile and install the shared library of XPA since
+this is the one that will be used by Julia.
+
+Download the source archive at
+https://github.com/ericmandel/xpa/releases/latest, then unpack it in some
+directory, build and install it.  For instance:
+
+```sh
+cd "$SRCDIR"
+wget -O xpa-2.1.18.tar.gz https://github.com/ericmandel/xpa/archive/v2.1.18.tar.gz
+tar -zxvf xpa-2.1.18.tar.gz
+cd xpa-2.1.18
+./configure --prefix="$PREFIX" --enable-shared
+mkdir -p "$PREFIX/lib" "$PREFIX/include" "$PREFIX/bin"
+make install
+```
+
+where `$SRCDIR` is the directory where to download the archive and extract the
+source while `$PREFIX` is the directory to install XPA library, header file(s)
+and executables.  You may consider other configuration options (run
+`./configure --help` for a list) but make sure to have `--enable-shared` for
+building the shared library.  As of the current version of XPA (2.1.18), the
+installation script does not automatically build some destination directories,
+hence the `mkdir -p ...` command above.
+
+
+### Installation of the XPA Julia package
 
 The easiest way to install the package is to do it from Julia:
 
@@ -34,6 +65,28 @@ To upgrade the package:
 Pkg.update("XPA")
 Pkg.build("XPA")
 ```
+
+If you have a custom XPA installation, then you may define the environment
+variables `XPA_DEFS` and `XPA_LIBS` to suitable values before building XPA
+package.  The environment variable `XPA_DEFS` specifies the C-preprocessor
+flags for finding the header `"xpa.h"` while the environment variable
+`XPA_LIBS` specifies the linker flags for linking with the XPA dynamic library.
+For instance, do:
+
+```sh
+export XPA_DEFS="-I$PREFIX/include"
+export XPA_LIBS="-L$PREFIX/lib -lxpa"
+```
+
+before launching Julia and cloning/building the XPA package.  You may also
+add the following lines in `~/.julia/config/startup.jl`:
+
+```julia
+ENV["XPA_DEFS"] = "-I/InstallDir/include"
+ENV["XPA_LIBS"] = "-L/InstallDir/myxpa/lib -lxpa"
+```
+
+where `InstallDir` should be modified according to your specific installation.
 
 
 ## Using the XPA message system
