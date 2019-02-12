@@ -8,13 +8,7 @@
 #     XPA_LIBS is linker flags for linking with the XPA dynamic library.
 #              For instance: XPA_LIBS=-L/usr/local/lib -lxpa
 #
-XPA_DEFS ?=
-XPA_LIBS ?= -lxpa
 
-# CC =
-# CFLAGS =
-# CPPFLAGS =
-# LDFLAGS =
 srcdir = .
 
 all: deps.jl
@@ -26,7 +20,9 @@ distclean: clean
 	rm -f deps.jl
 
 gencode: gencode.c Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o "$@" "$<" $(LDFLAGS) $(XPA_LIBS)
+	xpalibs="$(XPA_LIBS)"; \
+	test "$$xpalibs" = "" && xpalibs="-lxpa"; \
+	$(CC) $(CPPFLAGS) $(XPA_DEFS) $(CFLAGS) -o "$@" "$<" $(LDFLAGS) $$xpalibs
 
 deps.jl: gencode ${srcdir}/getdll.sh Makefile
 	rm -f "$@"
