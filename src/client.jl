@@ -115,26 +115,36 @@ See also: [`XPA.Client`](@ref), [`XPA.set`](@ref).
 """
 function get(xpa::Client, apt::AbstractString, params::AbstractString...;
              mode::AbstractString = "", nmax::Integer = 1)
-    if nmax == -1
-        nmax = getconfig("XPA_MAXHOSTS")
-    end
-    bufs = Array{Ptr{Byte}}(undef, nmax)
-    lens = Array{Csize_t}(undef, nmax)
-    names = Array{Ptr{Byte}}(undef, nmax)
-    errs = Array{Ptr{Byte}}(undef, nmax)
-    n = ccall((:XPAGet, libxpa), Cint,
-              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
-               Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-              xpa.ptr, apt, join(params, " "), mode,
-              bufs, lens, names, errs, nmax)
-    n ≥ 0 || error("unexpected result from XPAGet")
-    return ntuple(i -> (_fetch(bufs[i], lens[i]),
-                        _fetch(String, names[i]),
-                        _fetch(String,  errs[i])), n)
+    return _get(xpa, apt, join(params, " "), mode, _nmax(nmax))
 end
 
 get(args::AbstractString...; kwds...) =
     get(TEMPORARY, args...; kwds...)
+
+function _get(xpa::Client, apt::AbstractString, params::AbstractString,
+              mode::AbstractString, nmax::Int)
+    bufs = Vector{Ptr{Byte}}(undef, nmax)
+    lens = Vector{Csize_t}(  undef, nmax)
+    nams = Vector{Ptr{Byte}}(undef, nmax)
+    errs = Vector{Ptr{Byte}}(undef, nmax)
+    n = ccall((:XPAGet, libxpa), Cint,
+              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
+               Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
+              xpa.ptr, apt, params, mode, bufs, lens, nams, errs, nmax)
+    n ≥ 0 || error("unexpected result from XPAGet")
+    return ntuple(i -> (_fetch(bufs[i], lens[i]),
+                        _fetch(String,  nams[i]),
+                        _fetch(String,  errs[i])), n)
+end
+
+"""
+
+Private method `_nmax(n)` yields the maximum number of expected answers to a
+get/set request.  The result is `n` if `n ≥ 1` or `getconfig("XPA_MAXHOSTS")`
+otherwise.
+
+"""
+_nmax(n::Integer) = (n == -1 ? Int(getconfig("XPA_MAXHOSTS")) : Int(n))
 
 """
 
@@ -272,20 +282,7 @@ function set(xpa::Client, apt::AbstractString, params::AbstractString...;
              mode::AbstractString = "",
              nmax::Integer = 1,
              check::Bool = false)
-    buf = Buffer(data)
-    if nmax == -1
-        nmax = getconfig("XPA_MAXHOSTS")
-    end
-    names = Array{Ptr{Byte}}(undef, nmax)
-    errs = Array{Ptr{Byte}}(undef, nmax)
-    n = ccall((:XPASet, libxpa), Cint,
-              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Cvoid},
-               Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-              xpa.ptr, apt, join(params, " "), mode,
-              pointer(buf), sizeof(buf), names, errs, nmax)
-    n ≥ 0 || error("unexpected result from XPASet")
-    tup = ntuple(i -> (_fetch(String, names[i]),
-                       _fetch(String,  errs[i])), n)
+    tup = _set(xpa, apt, join(params, " "), mode, buffer(data), _nmax(nmax))
     if check
         for (name, mesg) in tup
             if length(mesg) ≥ 9 && mesg[1:9] == "XPA\$ERROR"
@@ -299,41 +296,56 @@ end
 set(args::AbstractString...; kwds...) =
     set(TEMPORARY, args...; kwds...)
 
-# FIXME: Check alignment before converting to a pointer of a given type.
-#
-# Extend `unsafe_convert` for `ccall`.  According to `cconvert doc.`, neither
-# `convert` nor `cconvert` should take a Julia object and turn it into a `Ptr`.
-Base.unsafe_convert(::Type{Ptr{T}}, buf::Buffer{Nothing}) where {T} = Ptr{T}(0)
-Base.unsafe_convert(::Type{Ptr{T}}, buf::Buffer{<:DenseArray{T}}) where {T} =
-    pointer(buf)
-for T in (Cvoid, Int8, UInt8)
-    @eval Base.unsafe_convert(::Type{Ptr{$T}}, buf::Buffer{<:DenseArray}) =
-        Ptr{$T}(pointer(buf))
-    if T !== Cvoid
-        @eval Base.unsafe_convert(::Type{Ptr{$T}}, buf::Buffer{<:DenseArray{$T}}) =
-            pointer(buf)
-    end
+function _set(xpa::Client, apt::AbstractString, params::AbstractString,
+              mode::AbstractString, data::Union{NullBuffer,DenseArray},
+              nmax::Int) :: Tuple{Vararg{Tuple{String,String}}}
+    names = Vector{Ptr{Byte}}(undef, nmax)
+    errs = Vector{Ptr{Byte}}(undef, nmax)
+    n = ccall((:XPASet, libxpa), Cint,
+              (Ptr{Cvoid}, Cstring, Cstring, Cstring, Ptr{Cvoid},
+               Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
+              xpa.ptr, apt, params, mode, data, sizeof(data),
+              names, errs, nmax)
+    n ≥ 0 || error("unexpected result from XPASet")
+    return ntuple(i -> (_fetch(String, names[i]),
+                        _fetch(String,  errs[i])), n)
 end
 
-Base.pointer(buf::Buffer{Nothing}) = C_NULL
-Base.pointer(buf::Buffer{<:DenseArray}) = pointer(buf.data)
+"""
+```julia
+buf = buffer(data)
+```
 
-Base.sizeof(buf::Buffer{Nothing}) = 0
-Base.sizeof(buf::Buffer{<:DenseArray}) = sizeof(buf.data)
+yields an object `buf` representing the contents of `data` and which can be
+used as an argument to [`ccall`](@ref) without the risk of having the data
+garbage collected.  Argument `data` can be [`nothing`](@ref), a dense array or
+a string.  If `data` is an array `buf` is just an alias for `data`.  If `data`
+is a string, `buf` is a temporary byte buffer where the string has been copied.
 
-Buffer(::Nothing) = Buffer{Nothing}(nothing)
+Standard methods [`pointer`](@ref) and [`sizeof`](@ref) can be applied to `buf`
+to retieve the address and the size (in bytes) of the data and
+`convert(Ptr{Cvoid},buf)` can also be used.
 
-function Buffer(arr::T) where {T<:DenseArray}
-    @assert isbitstype(eltype(arr))
-    return Buffer{T}(arr)
+See also [`XPA.set`](@ref).
+
+"""
+function buffer(arr::A) :: A where {T,N,A<:DenseArray{T,N}}
+    @assert isbitstype(T)
+    return arr
 end
 
-function Buffer(str::AbstractString)
+function buffer(str::AbstractString)
     @assert isascii(str)
     len = length(str)
     buf = Vector{Cchar}(undef, len)
     @inbounds for i in 1:len
         buf[i] = str[i]
     end
-    return Buffer(buf)
+    return buf
 end
+
+buffer(::Nothing) = NullBuffer()
+
+Base.unsafe_convert(::Type{Ptr{T}}, ::NullBuffer) where {T} = Ptr{T}(0)
+Base.pointer(::NullBuffer) = C_NULL
+Base.sizeof(::NullBuffer) = 0

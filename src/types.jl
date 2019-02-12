@@ -52,26 +52,5 @@ struct AccessPoint
     access::UInt  # allowed access
 end
 
-"""
-```julia
-buf = Buffer(data)
-```
-
-yields an object `buf` representing the contents of `data` which can be
-[`nothing`](@ref), a dense array or a string.  If `data` is an array `buf`
-holds a reference on `data`.  If `data` is a string, `buf` stores a temporary
-byte buffer where the string is copied.  The object `buf` can be used to pass
-some data to [`ccall`](@ref) without the risk of having the data garbage
-collected.
-
-Standard methods [`pointer`](@ref) and [`sizeof`](@ref) can be applied to `buf`
-to retieve the address and the size (in bytes) of the data and
-`convert(Ptr{Cvoid},buf)` can also be used.
-
-See also [`XPA.set`](@ref).
-
-"""
-struct Buffer{T} # FIXME: should be mutable?
-    data::T
-    Buffer{T}(data::T) where {T} = new{T}(data)
-end
+# Singleton to represent a NULL-buffer.
+struct NullBuffer end
