@@ -35,15 +35,18 @@ int main(int argc, char* argv[])
           "# but rather run `make deps.jl` from the shell or execute\n"
           "# `Pkg.build(\"XPA\") from julia.\n");
 
+#ifndef XPA_DLL
   /*
    * Basic check, also makes sure the executable is linked against the XPA
-   * library.
+   * library.  This is only needed if XPA_DLL is not defined with the full path
+   * of the XPA dynamic library.
    */
   if (XPAClientValid(NULL) != 0) {
     fprintf(stderr, "%s: unexpected failure of `XPAClientValid(NULL)`!\n",
             argv[0]);
     exit(1);
   }
+#endif /* XPA_DLL */
 
   fprintf(output, "\n");
   fprintf(output, "\"`XPA_VERSION` is the version of the XPA library.\"\n");
@@ -87,6 +90,12 @@ int main(int argc, char* argv[])
   DEF_OFFSETOF("comm_ack    ", XPACommRec, ack);
   DEF_OFFSETOF("comm_buf    ", XPACommRec, buf);
   DEF_OFFSETOF("comm_len    ", XPACommRec, len);
+
+  fprintf(output, "\n");
+  fprintf(output, "# Path to the XPA dynamic library.\n");
+#ifdef XPA_DLL
+  fprintf(output, "const libxpa = \"%s\"\n", XPA_DLL);
+#endif /* XPA_DLL */
 
   return 0;
 }

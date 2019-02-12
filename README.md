@@ -66,24 +66,45 @@ Pkg.update("XPA")
 Pkg.build("XPA")
 ```
 
-If you have a custom XPA installation, then you may define the environment
-variables `XPA_DEFS` and `XPA_LIBS` to suitable values before building XPA
-package.  The environment variable `XPA_DEFS` specifies the C-preprocessor
-flags for finding the header `"xpa.h"` while the environment variable
+If you have a custom XPA installation, you may define the environment variables
+`XPA_DEFS` and `XPA_LIBS` to suitable values before building XPA package.  The
+environment variable `XPA_DEFS` specifies the C-preprocessor flags for finding
+the headers `"xpa.h"` and `"prsetup.h"` while the environment variable
 `XPA_LIBS` specifies the linker flags for linking with the XPA dynamic library.
-For instance, do:
+If you have installed XPA as explained above, do:
 
 ```sh
 export XPA_DEFS="-I$PREFIX/include"
 export XPA_LIBS="-L$PREFIX/lib -lxpa"
 ```
 
-before launching Julia and cloning/building the XPA package.  You may also
-add the following lines in `~/.julia/config/startup.jl`:
+It may also be the case that you want to use a specific XPA dynamic library
+even though your sustem provides one.  Then define the environment variable
+`XPA_DEFS` as explained above and define the environment variable `XPA_DLL`
+with the full path to the dynamic library to use.  For instance:
+
+```sh
+export XPA_DEFS="-I$PREFIX/include"
+export XPA_DLL="$PREFIX/lib/libxpa.so"
+```
+
+Note that if both `XPA_LIBS` and `XPA_DLL` are defined, the latter has
+precedence.
+
+These variables must be defined before launching Julia and cloning/building the
+XPA package.  You may also add the following lines in
+`~/.julia/config/startup.jl`:
 
 ```julia
 ENV["XPA_DEFS"] = "-I/InstallDir/include"
-ENV["XPA_LIBS"] = "-L/InstallDir/myxpa/lib -lxpa"
+ENV["XPA_LIBS"] = "-L/InstallDir/lib -lxpa"
+```
+
+or (depending on the situation):
+
+```julia
+ENV["XPA_DEFS"] = "-I/InstallDir/include"
+ENV["XPA_DLL"] = "/InstallDir/lib/libxpa.so"
 ```
 
 where `InstallDir` should be modified according to your specific installation.
