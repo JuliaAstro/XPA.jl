@@ -115,7 +115,7 @@ See also: [`XPA.Client`](@ref), [`XPA.set`](@ref).
 """
 function get(xpa::Client, apt::AbstractString, params::AbstractString...;
              mode::AbstractString = "", nmax::Integer = 1)
-    return _get(xpa, apt, join(params, " "), mode, _nmax(nmax))
+    return _get(xpa, apt, _join(params), mode, _nmax(nmax))
 end
 
 get(args::AbstractString...; kwds...) =
@@ -136,6 +136,18 @@ function _get(xpa::Client, apt::AbstractString, params::AbstractString,
                         _fetch(String,  nams[i]),
                         _fetch(String,  errs[i])), n)
 end
+
+"""
+
+Private method `_join(tup)` joins a tuple of string into a single string.
+It is implemented so as to be faster than `join(tup, " ")` when `tup` has
+less than 2 arguments.  It is intended to build XPA command string from
+arguments.
+
+"""
+_join(args::Tuple{Vararg{AbstractString}}) = join(args, " ")
+_join(args::Tuple{AbstractString}) = args[1]
+_join(::Tuple{}) = ""
 
 """
 
@@ -282,7 +294,7 @@ function set(xpa::Client, apt::AbstractString, params::AbstractString...;
              mode::AbstractString = "",
              nmax::Integer = 1,
              check::Bool = false)
-    tup = _set(xpa, apt, join(params, " "), mode, buffer(data), _nmax(nmax))
+    tup = _set(xpa, apt, _join(params), mode, buffer(data), _nmax(nmax))
     if check
         for (name, mesg) in tup
             if length(mesg) ≥ 9 && mesg[1:9] == "XPA\$ERROR"
