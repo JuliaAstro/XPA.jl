@@ -16,7 +16,7 @@ const _SERVERS = Dict{Ptr{Cvoid},Any}()
 
 """
 ```julia
-Server(class, name, help, send, recv) -> srv
+XPA.Server(class, name, help, send, recv) -> srv
 ```
 
 yields an XPA server identified by `class` and `name` (both specified as two
