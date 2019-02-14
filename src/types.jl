@@ -36,6 +36,23 @@ mutable struct Client <: Handle
     ptr::Ptr{Cvoid} # pointer to XPARec structure
 end
 
+"""
+
+`Reply` is used to store the answer(s) of an [`XPA.get`](@ref) request.  Method
+`length` applied to an object of type `Reply` yields the number of replies.
+Methods [`XPA.get_data`](@ref), [`XPA.get_server`](@ref) and
+[`XPA.get_message`](@ref) can be used to retrieve the contents of an object of
+type `Reply`.
+
+"""
+mutable struct Reply
+    replies::Int
+    lengths::Vector{Csize_t}
+    buffers::Vector{Ptr{Byte}}
+end
+
+Base.length(rep::Reply) = rep.replies
+
 # XPA server, must be mutable to be finalized.
 mutable struct Server <: Handle
     ptr::Ptr{Cvoid} # pointer to XPARec structure

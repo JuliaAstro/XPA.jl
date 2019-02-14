@@ -16,12 +16,9 @@ export
 
 using Base: ENV
 
-# FIXME: constanst should be in deps.jl
-if isfile(joinpath(dirname(@__FILE__), "..", "deps", "deps.jl"))
-    include(joinpath("..", "deps", "deps.jl"))
-else
+isfile(joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")) ||
     error("XPA not properly installed.  Please run Pkg.build(\"XPA\")")
-end
+include(joinpath("..", "deps", "deps.jl"))
 include("types.jl")
 include("misc.jl")
 include("client.jl")
