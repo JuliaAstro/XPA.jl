@@ -194,12 +194,25 @@ _free(ptr::Ptr{T}) where T =
 
 """
 ```julia
-_memcpy!(dst, src, len)` -> dst
+_memcpy!(dst, src, len) -> dst
 ```
 
-copies `len` bytes from address `src` to `dst` and return `dst` as a byte
-pointer (type `Ptr{UInt8}`).
+copies `len` bytes from address `src` to destination `dst`.
 
 """
-_memcpy!(dst::Ptr, src::Ptr, len::Integer) :: Ptr{Byte} =
-    ccall(:memcpy, Ptr{Byte}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, src, len)
+function _memcpy!(dst::Ptr, src::Ptr, len::Integer)
+    if len > 0
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
+              dst, src, len)
+    end
+    return dst
+end
+
+function _memcpy!(dst::AbstractArray, src::Ptr, len::Integer)
+    len == sizeof(dst) || error("bad number of bytes to copy")
+    if len > 0
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
+              dst, src, len)
+    end
+    return dst
+end
