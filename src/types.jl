@@ -38,6 +38,14 @@ end
 
 """
 
+`TupleOf{T}` represents a tuple of any number of elements of type `T`, it is an
+alias for `Tuple{Vararg{T}}`
+
+"""
+const TupleOf{T} = Tuple{Vararg{T}}
+
+"""
+
 `Reply` is used to store the answer(s) of an [`XPA.get`](@ref) request.  Method
 `length` applied to an object of type `Reply` yields the number of replies.
 Methods [`XPA.get_data`](@ref), [`XPA.get_server`](@ref) and

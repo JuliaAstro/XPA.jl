@@ -210,7 +210,7 @@ less than 2 arguments.  It is intended to build XPA command string from
 arguments.
 
 """
-_join(args::Tuple{Vararg{Union{AbstractString,Real}}}) = join(args, " ")
+_join(args::TupleOf{Union{AbstractString,Real}}) = join(args, " ")
 _join(args::Tuple{Union{AbstractString,Real}}) = args[1]
 _join(::Tuple{}) = ""
 
@@ -442,8 +442,8 @@ end
 _dimensions(dim::Integer) = (Int(dim),)
 _dimensions(dim::Int) = (dim,)
 _dimensions(dims::Tuple{}) = dims
-_dimensions(dims::Tuple{Vararg{Integer}}) = map(Int, dims)
-_dimensions(dims::Tuple{Vararg{Int}}) = dims
+_dimensions(dims::TupleOf{Integer}) = map(Int, dims)
+_dimensions(dims::TupleOf{Int}) = dims
 
 # _copy(what, ptr [, nbytes]) copies data at address ptr in the form
 # specified by what: String, Vector{T}, or, Array{N,T}, dims.
