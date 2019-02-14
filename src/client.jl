@@ -268,9 +268,7 @@ See also [`XPA.get](@ref), [`XPA.has_message](@ref), [`XPA.get_message](@ref).
 has_error(rep::Reply, i::Integer=1) :: Bool =
     _is_same(rep.buffers[_msg_index(rep, i)], _XPA_ERROR)
 
-const _XPA_ERROR = map(Byte, Tuple(collect("XPA\$ERROR")))
-# Note: Tuple(map(UInt8, collect(s))) is ~7 times faster than
-#       map(UInt8, Tuple(collect(s)))
+const _XPA_ERROR = Tuple(map(Byte, collect("XPA\$ERROR")))
 
 function has_errors(rep::Reply) :: Bool
     for i in 1:length(rep)
@@ -294,7 +292,7 @@ See also [`XPA.get](@ref), [`XPA.has_message](@ref).
 has_message(rep::Reply, i::Integer=1) :: Bool =
     _is_same(rep.buffers[_msg_index(rep, i)], _XPA_MESSAGE)
 
-const _XPA_MESSAGE = map(Byte, Tuple(collect("XPA\$MESSAGE")))
+const _XPA_MESSAGE = Tuple(map(Byte, collect("XPA\$MESSAGE")))
 
 function _is_same(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
     if ptr == NULL
