@@ -16,7 +16,7 @@ export
 
 using Base: ENV
 
-isfile(joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")) ||
+isfile(joinpath(@__DIR__, "..", "deps", "deps.jl")) ||
     error("XPA not properly installed.  Please run Pkg.build(\"XPA\")")
 include(joinpath("..", "deps", "deps.jl"))
 include("types.jl")
