@@ -182,11 +182,9 @@ end
 
 function _free(rep::Reply)
     nmax = _nmax(rep)
-    for i in 0:2, j in 1:rep.replies
+    fill!(rep.lengths, 0)
+    for i in 0:2, j in 1:length(rep)
         k = i*nmax + j
-        if i == 0
-            rep.lengths[k] = 0
-        end
         if (ptr = rep.buffers[k]) != NULL
             rep.buffers[k] = NULL
             _free(ptr)
@@ -194,13 +192,34 @@ function _free(rep::Reply)
     end
 end
 
-_checked_index(rep::Reply, i::Integer) = _checked_index(rep, Int(i))
-_checked_index(rep::Reply, i::Int) =
-    (1 ≤ i ≤ rep.replies ? i : error("out of range reply index"))
+# i-th server name is at index i + nmax.
+_get_srv(rep::Reply, i::Integer) = _get_srv(rep, Int(i))
+_get_srv(rep::Reply, i::Int) :: Ptr{UInt8} =
+    (1 ≤ i ≤ length(rep) ? rep.buffers[i + _nmax(rep)] : NULL)
 
-_buf_index(rep::Reply, i::Integer) = _checked_index(rep, i)
-_srv_index(rep::Reply, i::Integer) = _checked_index(rep, i) + _nmax(rep)
-_msg_index(rep::Reply, i::Integer) = _checked_index(rep, i) + _nmax(rep)*2
+# i-th message is at index i + 2*nmax.
+_get_msg(rep::Reply, i::Integer) = _get_msg(rep, Int(i))
+_get_msg(rep::Reply, i::Int) :: Ptr{UInt8} =
+    (1 ≤ i ≤ length(rep) ? rep.buffers[i + _nmax(rep)*2] : NULL)
+
+# i-th data buffer is at index i.
+_get_buf(rep::Reply, i::Integer, preserve::Bool) =
+    _get_buf(rep, Int(i), preserve)
+
+function _get_buf(rep::Reply, i::Int, preserve::Bool) :: Tuple{Ptr{UInt8},Int}
+    local ptr::Ptr{UInt8}, len::Int
+    if 1 ≤ i ≤ length(rep)
+        ptr, len = rep.buffers[i], rep.lengths[i]
+        (ptr == NULL ? len == 0 : len ≥ 0) || error("invalid buffer length")
+        if ! preserve && ptr != NULL
+            rep.lengths[i] = 0
+            rep.buffers[i] = NULL
+        end
+    else
+        ptr, len = NULL, 0
+    end
+    return (ptr, len)
+end
 
 """
 
@@ -232,27 +251,26 @@ get_server(rep, i=1)
 ```
 
 yields the XPA identifier of the server which sent the `i`-th reply in XPA
-answer `rep`.
+answer `rep`.  An empty string is returned if there is no `i`-th reply.
 
 See also [`XPA.get](@ref), [`XPA.get_message](@ref).
 
 """
-get_server(rep::Reply, i::Integer=1) :: String =
-    _copy(String, rep.buffers[_srv_index(rep, i)])
+get_server(rep::Reply, i::Integer=1) = _string(_get_srv(rep, i))
 
 """
 ```julia
 get_message(rep, i=1)
 ```
 
-yields the message associated with the `i`-th reply in XPA answer `rep`.
+yields the message associated with the `i`-th reply in XPA answer `rep`.  An
+empty string is returned if there is no `i`-th reply.
 
 See also [`XPA.get](@ref), [`XPA.has_message](@ref), [`XPA.has_error](@ref),
 [`XPA.get_server](@ref).
 
 """
-get_message(rep::Reply, i::Integer=1) :: String =
-    _copy(String, rep.buffers[_msg_index(rep, i)])
+get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
 
 """
 ```julia
@@ -265,10 +283,10 @@ message can be retrieved by calling `XPA.get_message(rep, i)`.
 See also [`XPA.get](@ref), [`XPA.has_message](@ref), [`XPA.get_message](@ref).
 
 """
-has_error(rep::Reply, i::Integer=1) :: Bool =
-    _is_same(rep.buffers[_msg_index(rep, i)], _XPA_ERROR)
+has_error(rep::Reply, i::Integer=1) =
+    _startswith(_get_msg(rep, i), _XPA_ERROR)
 
-const _XPA_ERROR = Tuple(map(Byte, collect("XPA\$ERROR")))
+const _XPA_ERROR = Tuple(map(Byte, collect("XPA\$ERROR ")))
 
 function has_errors(rep::Reply) :: Bool
     for i in 1:length(rep)
@@ -289,12 +307,12 @@ yields whether `i`-th XPA answer `rep` contains an error message.
 See also [`XPA.get](@ref), [`XPA.has_message](@ref).
 
 """
-has_message(rep::Reply, i::Integer=1) :: Bool =
-    _is_same(rep.buffers[_msg_index(rep, i)], _XPA_MESSAGE)
+has_message(rep::Reply, i::Integer=1) =
+    _startswith(_get_msg(rep, i), _XPA_MESSAGE)
 
-const _XPA_MESSAGE = Tuple(map(Byte, collect("XPA\$MESSAGE")))
+const _XPA_MESSAGE = Tuple(map(Byte, collect("XPA\$MESSAGE ")))
 
-function _is_same(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
+function _startswith(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
     if ptr == NULL
         return false
     end
@@ -303,7 +321,7 @@ function _is_same(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
             return false
         end
     end
-    return unsafe_load(ptr, N + 1) == zero(Byte)
+    return true
 end
 
 """
@@ -342,7 +360,7 @@ get_data(rep::Reply, args...; kwds...) =
 
 function get_data(::Type{String}, rep::Reply, i::Integer=1;
                   preserve::Bool = true) :: String
-    ptr, len = _get_data(rep, i, preserve)
+    ptr, len = _get_buf(rep, i, preserve)
     ptr == NULL && return ""
     str = unsafe_string(ptr, len)
     preserve || _free(ptr)
@@ -352,7 +370,7 @@ end
 function get_data(::Type{Vector{T}}, rep::Reply, i::Integer=1;
                   preserve::Bool = false) :: Vector{T} where {T}
     isbitstype(T) || error("invalid Array element type")
-    ptr, len = _get_data(rep, i, preserve)
+    ptr, len = _get_buf(rep, i, preserve)
     cnt = div(len, sizeof(T))
     if ptr == NULL || cnt ≤ 0
         # Empty vector.
@@ -369,60 +387,51 @@ end
 function get_data(::Type{Array{T}}, dims::Integer,
                   rep::Reply, i::Integer = 1;
                   preserve::Bool = false) :: Vector{T} where {T}
-    return _get_data(Vector{T}, _dimensions(dims), rep, i, preserve)
+    return _get_buf(Vector{T}, _dimensions(dims), rep, i, preserve)
 end
 
 function get_data(::Type{Vector{T}}, dims::Integer,
                   rep::Reply, i::Integer = 1;
                   preserve::Bool = false) :: Vector{T} where {T}
-    return _get_data(Vector{T}, _dimensions(dims), rep, i, preserve)
+    return _get_buf(Vector{T}, _dimensions(dims), rep, i, preserve)
 end
 
 function get_data(::Type{Array{T}}, dims::NTuple{N,Integer},
                   rep::Reply, i::Integer = 1;
                   preserve::Bool = false) :: Array{T,N} where {T,N}
-    return _get_data(Array{T,N}, _dimensions(dims), rep, i, preserve)
+    return _get_buf(Array{T,N}, _dimensions(dims), rep, i, preserve)
 end
 
 function get_data(::Type{Array{T,N}}, dims::NTuple{N,Integer},
                   rep::Reply, i::Integer = 1;
                   preserve::Bool = false) :: Array{T,N} where {T,N}
-    return _get_data(Array{T,N}, _dimensions(dims), rep, i, preserve)
+    return _get_buf(Array{T,N}, _dimensions(dims), rep, i, preserve)
 end
 
 """
 
-Private method `_get_data(rep,i,preserve)` yields `(ptr,len)` the address and
+Private method `_get_buf(rep,i,preserve)` yields `(ptr,len)` the address and
 length (in bytes) of internal buffer corresponding to the data for the `i`-th
 reply in `rep`.  If `preserve` is false, then the internal buffer is set to
-NULL and the caller is reponsible to free it.
+NULL and the caller is responsible to free it.  If `i` is out of range or if
+there are no data associated with the `i`-th reply in `rep`, `(NULL,0)` is
+returned.
 
 The call:
 
 ```julia
-_get_data(::Type{Array{T,N}}, dims::NTuple{N,Int},
-          rep::Reply, i::Integer, preserve::Bool)
+_get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
+         rep::Reply, i::Integer, preserve::Bool)
 ```
 
 yields the contents of the internal data buffer as a Julia array.
 
 """
-function _get_data(rep::Reply, i::Integer, preserve::Bool)
-    j = _buf_index(rep, i)
-    ptr, len = rep.buffers[j], rep.lengths[j]
-    (ptr == NULL ? len == 0 : len ≥ 0) || error("invalid buffer length")
-    if ! preserve && ptr != NULL
-        rep.lengths[j] = 0
-        rep.buffers[j] = NULL
-    end
-    return (ptr, len)
-end
-
-function _get_data(::Type{Array{T,N}}, dims::NTuple{N,Int},
+function _get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
                   rep::Reply, i::Int, preserve::Bool) :: Array{T,N} where {T,N}
     isbitstype(T) || error("invalid Array element type")
     minimum(dims) ≥ 0 || error("invalid Array dimensions")
-    ptr, len = _get_data(rep, i, preserve)
+    ptr, len = _get_buf(rep, i, preserve)
     cnt = prod(dims)
     cnt*sizeof(T) ≤ len || error("Array size too large for buffer")
     if ptr == NULL || cnt ≤ 0
@@ -443,17 +452,9 @@ _dimensions(dims::Tuple{}) = dims
 _dimensions(dims::TupleOf{Integer}) = map(Int, dims)
 _dimensions(dims::TupleOf{Int}) = dims
 
-# _copy(what, ptr [, nbytes]) copies data at address ptr in the form
-# specified by what: String, Vector{T}, or, Array{N,T}, dims.
-#
-# Compared to _pop, the buffer at address ptr is not managed by Julia and left
-# untouched.
-
-_copy(::Type{String}, ptr::Ptr{Byte}) =
-    (ptr == NULL ? "" : unsafe_string(ptr))
-
-_copy(::Type{String}, ptr::Ptr{Byte}, nbytes::Integer) =
-    (ptr == NULL ? "" : unsafe_string(ptr, nbytes))
+# _string(ptr) copies data at address ptr as a string, if ptr is NULL, an empty
+# string is returned.
+_string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 
 """
 ```julia
