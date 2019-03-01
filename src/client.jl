@@ -91,34 +91,43 @@ end
 
 """
 ```julia
-XPA.get([T, [dims,]] [xpa,] apt, params...) -> rep
+XPA.get([T, [dims,]] [xpa,] apt, params...)
 ```
-
-
-FIXME: fix doc.
 
 retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
 parameters `params` (automatically converted into a single string where the
-parameters are separated by a single space).  The result is a tuple of tuples
-`(data,name,mesg)` where `data` is a vector of bytes (`UInt8`), `name` is a
-string identifying the server which answered the request and `mesg` is a
-textual message (a zero-length string `""` if there are no messages).  Optional
-argument `xpa` specifies an XPA handle (created by [`XPA.Client`](@ref)) for
-faster connections.
+parameters are separated by a single space).  Optional argument `xpa` specifies
+an XPA handle (created by [`XPA.Client`](@ref)) for faster connections.  The
+returned value depends on the optional arguments `T` and `dims`.
 
-The following keywords are available:
+If neither `T` nor `dims` are specified, an instance of [`XPA.Reply`](@ref) is
+returned with all the answer(s) from the XPA server(s).  The following keywords
+are available:
 
 * `nmax` specifies the maximum number of answers, `nmax=1` by default.
   Specify `nmax=-1` to use the maximum number of XPA hosts.
 
-* `check` specifies whether to check for errors.  If this keyword is set true,
-  an error is thrown for the first error message encountered in the list of
-  answers.  By default, `check` is false.
+* `check` specifies whether to check for errors.  If this keyword is set
+  true, an error is thrown for the first error message encountered in the
+  list of answers.  By default, `check` is false.
 
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
-See also: [`XPA.Client`](@ref), [`XPA.set`](@ref).
+If `T` and, possibly, `dims` are specified, a single answer and no errors are
+expected (as if `nmax=1` and `check=true`) and the data part of the answer is
+converted according to `T` which must be a type and `dims` which is an optional
+list of dimensions:
+
+* If only `T` is specified, it can be `String` to return a string interpreting
+  the data as ASCII characters or a type like `Vector{S}` to return the largest
+  vector of elements of type `S` that can be extracted from the returned data.
+
+* If both `T` and `dims` are specified, `T` can be a type like `Array{S}` or
+  `Array{S,N}` and `dims` a list of `N` dimensions to retrieve the data as an
+  array of type `Array{S,N}`.
+
+See also: [`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref).
 
 """
 function get(xpa::Client, apt::AbstractString, params::AbstractString...;
@@ -133,28 +142,35 @@ end
 get(args::AbstractString...; kwds...) =
     get(TEMPORARY, args...; kwds...)
 
+_get1(args...; kwds...) = get(args...; nmax = 1, check = true, kwds...)
+
 function get(::Type{Vector{T}},
              args...; kwds...) :: Vector{T} where {T}
-    get_data(Vector{T}, get(args...; nmax = 1, check = true, kwds...))
+    get_data(Vector{T}, _get1(args...; kwds...))
 end
 
 function get(::Type{Vector{T}}, dim::Integer,
              args...; kwds...) :: Vector{T} where {T}
-    get_data(Vector{T}, dim, get(args...; nmax = 1, check = true, kwds...))
+    get_data(Vector{T}, dim, _get1(args...; kwds...))
+end
+
+function get(::Type{Array{T}}, dim::Integer,
+             args...; kwds...) :: Array{T,N} where {T,N}
+    get_data(Vector{T}, dim, _get1(args...; kwds...))
 end
 
 function get(::Type{Array{T}}, dims::NTuple{N,Integer},
              args...; kwds...) :: Array{T,N} where {T,N}
-    get_data(Array{T,N}, dims, get(args...; nmax = 1, check = true, kwds...))
+    get_data(Array{T,N}, dims, _get1(args...; kwds...))
 end
 
 function get(::Type{Array{T,N}}, dims::NTuple{N,Integer},
              args...; kwds...) :: Array{T,N} where {T,N}
-    get_data(Array{T,N}, dims, get(args...; nmax = 1, check = true, kwds...))
+    get_data(Array{T,N}, dims, _get1(args...; kwds...))
 end
 
 function get(::Type{String}, args...; kwds...)
-    return get_data(String, get(args...; nmax = 1, kwds...))
+    return get_data(String, _get1(args...; kwds...))
 end
 
 function _get(xpa::Client, apt::AbstractString, params::AbstractString,
@@ -183,7 +199,8 @@ end
 function _free(rep::Reply)
     nmax = _nmax(rep)
     fill!(rep.lengths, 0)
-    for i in 0:2, j in 1:length(rep)
+    for i in 0:2,
+        j in 1:length(rep)
         k = i*nmax + j
         if (ptr = rep.buffers[k]) != NULL
             rep.buffers[k] = NULL
@@ -335,12 +352,13 @@ returned value depends on the optional leading arguments `T` and `dims`:
 * If neither `T` nor `dims` are specified, a vector of bytes (`UInt8`) is
   returned.
 
-* If only `T` is specified, it can be `String` to return a string or
-  a bits type to return a vector `Vector{T}`.
+* If only `T` is specified, it can be `String` to return a string interpreting
+  the data as ASCII characters or a type like `Vector{S}` to return the largest
+  vector of elements of type `S` that can be extracted from the data.
 
 * If both `T` and `dims` are specified, `T` can be an array type like
-  `Array{S}` or `Array{S,N}` and `dims` a list of `N` dimensions
-  to retrieve the data as an array of type `Array{S,N}`.
+  `Array{S}` or `Array{S,N}` and `dims` a list of `N` dimensions to retrieve
+  the data as an array of type `Array{S,N}`.
 
 Keyword `preserve` can be used to specifiy whether or not to preserve the
 internal data buffer in `rep` for another call to `XPA.get_data`.  By default,
@@ -356,7 +374,7 @@ get_data(rep::Reply, args...; kwds...) =
     get_data(Vector{Byte}, rep, args...; kwds...)
 
 # FIXME: implement
-#   get_data(Vector{AbstractString}, rep, ...) to split in words
+#   get_data(Vector{String}, rep, ...) to split in words
 
 function get_data(::Type{String}, rep::Reply, i::Integer=1;
                   preserve::Bool = true) :: String
@@ -384,16 +402,16 @@ function get_data(::Type{Vector{T}}, rep::Reply, i::Integer=1;
     end
 end
 
-function get_data(::Type{Array{T}}, dims::Integer,
+function get_data(::Type{Array{T}}, dim::Integer,
                   rep::Reply, i::Integer = 1;
                   preserve::Bool = false) :: Vector{T} where {T}
-    return _get_buf(Vector{T}, _dimensions(dims), rep, i, preserve)
+    return _get_buf(Vector{T}, _dimensions(dim), rep, i, preserve)
 end
 
-function get_data(::Type{Vector{T}}, dims::Integer,
+function get_data(::Type{Vector{T}}, dim::Integer,
                   rep::Reply, i::Integer = 1;
                   preserve::Bool = false) :: Vector{T} where {T}
-    return _get_buf(Vector{T}, _dimensions(dims), rep, i, preserve)
+    return _get_buf(Vector{T}, _dimensions(dim), rep, i, preserve)
 end
 
 function get_data(::Type{Array{T}}, dims::NTuple{N,Integer},
@@ -460,8 +478,6 @@ _string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 ```julia
 XPA.set([xpa,] apt, params...; data=nothing) -> rep
 ```
-
-# FIXME: fix doc.
 
 sends `data` to one or more XPA access points identified by `apt` with
 parameters `params` (automatically converted into a single string where the
