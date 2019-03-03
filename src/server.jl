@@ -12,7 +12,8 @@
 # We must make sure that the `send` and `recv` callbacks exist during the life
 # of the server.  To that end, we use the following dictionary to maintain
 # references to callbacks while they are used by an XPA server.
-const _SERVERS = Dict{Ptr{Cvoid},Any}()
+const _SERVERS = Dict{Ptr{Cvoid},Tuple{Union{SendCallback, Nothing},
+                                       Union{ReceiveCallback, Nothing}}}()
 
 """
 ```julia
@@ -58,23 +59,25 @@ send = XPA.SendCallback(sfunc, sdata)
 ```
 
 with `sdata` the client data (of type `S`) of the send callback, `srv` the XPA
-server serving the request, `params` the parameter list of the `XPA.get` call,
-`bufptr` and `lenptr` the addresses where to store the result of the request
-and its size (in bytes).
+server serving the request, `params` the parameter list of the
+`[XPA.get](@ref)` call, `bufptr` and `lenptr` the addresses where to store the
+result of the request and its size (in bytes).
 
 The receive callback will be called in response to an external request from the
-`xpaset` program, the `XPASet()` or `XPASetFd()` C routines, or the `XPA.set`
-Julia method.  This callback is used to process send data to the requesting
-client and is a combination of a function (`rfunc` below) and private data
-(`rdata` below) as summarized by the following typical example:
+`xpaset` program, the `XPASet()` or `XPASetFd()` C routines, or the
+[`XPA.set`](@ref) Julia method.  This callback is used to process sent data to
+the requesting client and is a combination of a function (`rfunc` below) and
+private data (`rdata` below) as summarized by the following typical example:
 
 ```julia
 # Method to handle a send request:
 function rfunc(rdata::R, srv::XPA.Server, params::String,
-               bufptr::Ptr{UInt8}, lenptr::Csize_t)
+               buf::Ptr{UInt8}, len::Csize_t)
     println("receive: \$params")
     arr = unsafe_wrap(Array, buf, len, own=false)
     ...
+    # FIXME: What happens if the array `arr` is returned?  We should make a
+    #        copy?
     return XPA.SUCCESS
 end
 
@@ -83,12 +86,14 @@ send = XPA.ReceiveCallback(rfunc, rdata)
 ```
 
 with `rdata` the client data (of type `R`) of the receive callback, `srv` the
-XPA server serving the request, `params` the parameter list of the `XPA.set`
-call, `buf` and `len` the address and size (in bytes) of the data to process.
+XPA server serving the request, `params` the parameter list of the
+[`XPA.set`](@ref) call, `buf` and `len` the address and size (in bytes) of the
+data to process.
 
-The callback methods `sfunc` and/or `rfunc` should return `XPA.SUCCESS` if no
-error occurs, or `XPA.FAILURE` to signal an error.  The Julia XPA package takes
-care of maintaining a reference on the client data and callback methods.
+The callback methods `sfunc` and/or `rfunc` should return [`XPA.SUCCESS`](@ref)
+if no error occurs, or [`XPA.FAILURE`](@ref) to signal an error.  The Julia XPA
+package takes care of maintaining a reference on the client data and callback
+methods.
 
 Also see: [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.setbuf!`](@ref),
           [`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref).
