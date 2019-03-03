@@ -22,12 +22,13 @@ const TEMPORARY = Client(C_NULL)
 XPA.Client()
 ```
 
-yields a persistent XPA client handle which can be used for calls to `XPA.set`
-and XPA.get` methods.  Persistence means that a connection to an XPA server is
-not closed when one of the above calls is completed but will be re-used on
-successive calls.  Using `XPA.Client()` therefore saves the time it takes to
-connect to a server, which could be significant with slow connections or if
-there will be a large number of exchanges with a given access point.
+yields a persistent XPA client handle which can be used for calls to
+[`XPA.set`](@ref) and [`XPA.get`](@ref) methods.  Persistence means that a
+connection to an XPA server is not closed when one of the above calls is
+completed but will be re-used on successive calls.  Using `XPA.Client()`
+therefore saves the time it takes to connect to a server, which could be
+significant with slow connections or if there will be a large number of
+exchanges with a given access point.
 
 See also: [`XPA.set`](@ref), [`XPA.get`](@ref)
 
@@ -57,7 +58,8 @@ XPA.list(xpa=XPA.TEMPORARY)
 
 yields a list of available XPA access points.  Optional argument `xpa` is a
 persistent XPA client connection; if omitted, a temporary client connection
-will be created.  The result is a vector of `XPA.AccessPoint` instances.
+will be created.  The result is a vector of [`XPA.AccessPoint`](@ref)
+instances.
 
 Also see: [`XPA.Client`](@ref).
 
@@ -105,14 +107,14 @@ If neither `T` nor `dims` are specified, an instance of [`XPA.Reply`](@ref) is
 returned with all the answer(s) from the XPA server(s).  The following keywords
 are available:
 
-* `nmax` specifies the maximum number of answers, `nmax=1` by default.
+* Keyword `nmax` specifies the maximum number of answers, `nmax=1` by default.
   Specify `nmax=-1` to use the maximum number of XPA hosts.
 
-* `check` specifies whether to check for errors.  If this keyword is set
+* Keyword `check` specifies whether to check for errors.  If this keyword is set
   true, an error is thrown for the first error message encountered in the
   list of answers.  By default, `check` is false.
 
-* `mode` specifies options in the form `"key1=value1,key2=value2"`.
+* Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
 If `T` and, possibly, `dims` are specified, a single answer and no errors are
 expected (as if `nmax=1` and `check=true`) and the data part of the answer is
@@ -270,7 +272,7 @@ get_server(rep, i=1)
 yields the XPA identifier of the server which sent the `i`-th reply in XPA
 answer `rep`.  An empty string is returned if there is no `i`-th reply.
 
-See also [`XPA.get](@ref), [`XPA.get_message](@ref).
+See also [`XPA.get`](@ref), [`XPA.get_message`](@ref).
 
 """
 get_server(rep::Reply, i::Integer=1) = _string(_get_srv(rep, i))
@@ -283,8 +285,8 @@ get_message(rep, i=1)
 yields the message associated with the `i`-th reply in XPA answer `rep`.  An
 empty string is returned if there is no `i`-th reply.
 
-See also [`XPA.get](@ref), [`XPA.has_message](@ref), [`XPA.has_error](@ref),
-[`XPA.get_server](@ref).
+See also [`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
+[`XPA.get_server`](@ref).
 
 """
 get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
@@ -297,7 +299,8 @@ XPA.has_error(rep, i=1) -> boolean
 yields whether `i`-th XPA answer `rep` contains an error message.  The error
 message can be retrieved by calling `XPA.get_message(rep, i)`.
 
-See also [`XPA.get](@ref), [`XPA.has_message](@ref), [`XPA.get_message](@ref).
+See also [`XPA.get`](@ref), [`XPA.has_message`](@ref),
+[`XPA.get_message`](@ref).
 
 """
 has_error(rep::Reply, i::Integer=1) =
@@ -305,6 +308,16 @@ has_error(rep::Reply, i::Integer=1) =
 
 const _XPA_ERROR = Tuple(map(Byte, collect("XPA\$ERROR ")))
 
+"""
+```julia
+XPA.has_errors(rep) -> boolean
+```
+
+yields whether answer `rep` contains any error messages.
+
+See also [`XPA.get`](@ref), [`XPA.has_error`](@ref), [`XPA.get_message`](@ref).
+
+"""
 function has_errors(rep::Reply) :: Bool
     for i in 1:length(rep)
         if has_error(rep, i)
@@ -321,7 +334,7 @@ XPA.has_message(rep, i=1) -> boolean
 
 yields whether `i`-th XPA answer `rep` contains an error message.
 
-See also [`XPA.get](@ref), [`XPA.has_message](@ref).
+See also [`XPA.get`](@ref), [`XPA.has_message`](@ref).
 
 """
 has_message(rep::Reply, i::Integer=1) =
@@ -367,7 +380,8 @@ internal data buffer in `rep` for another call to `XPA.get_data`.  By default,
 In any cases, the type of the result is predictible, so there should be no type
 instability issue.
 
-See also [`XPA.get](@ref), [`XPA.get_message](@ref), [`XPA.get_server](@ref).
+See also [`XPA.get`](@ref), [`XPA.get_message`](@ref),
+[`XPA.get_server`](@ref).
 
 """
 get_data(rep::Reply, args...; kwds...) =
@@ -481,26 +495,24 @@ XPA.set([xpa,] apt, params...; data=nothing) -> rep
 
 sends `data` to one or more XPA access points identified by `apt` with
 parameters `params` (automatically converted into a single string where the
-parameters are separated by a single space).  The result is a tuple of tuples
-`(name,mesg)` where `name` is a string identifying the server which received
-the request and `mesg` is an error message (a zero-length string `""` if there
-are no errors).  Optional argument `xpa` specifies an XPA handle (created by
-[`XPA.Client`](@ref)) for faster connections.
+parameters are separated by a single space).  The result is an instance of
+[`XPA.Reply`](@ref).  Optional argument `xpa` specifies an XPA handle (created
+by [`XPA.Client`](@ref)) for faster connections.
 
 The following keywords are available:
 
 * `data` specifies the data to send, may be `nothing`, an array or a string.
-  If it is an array, it must be an instance of a sub-type of `DenseArray` which
-  implements the `pointer` and `sizeof` methods.
+  If it is an array, it must have contiguous elements (as a for a *dense*
+  array) and must implement the `pointer` method.
 
 * `nmax` specifies the maximum number of recipients, `nmax=1` by default.
   Specify `nmax=-1` to use the maximum possible number of XPA hosts.
 
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
-* `check` specifies whether to check for errors.  If this keyword is set true,
-  an error is thrown for the first error message encountered in the list of
-  answers.  By default, `check` is false.
+* `check` specifies whether to check for errors.  If this keyword is set
+  `true`, an error is thrown for the first error message encountered in the
+  list of answers.  By default, `check` is false.
 
 See also: [`XPA.Client`](@ref), [`XPA.get`](@ref).
 
@@ -547,14 +559,14 @@ buf = buffer(data)
 ```
 
 yields an object `buf` representing the contents of `data` and which can be
-used as an argument to [`ccall`](@ref) without the risk of having the data
-garbage collected.  Argument `data` can be [`nothing`](@ref), a dense array or
-a string.  If `data` is an array `buf` is just an alias for `data`.  If `data`
-is a string, `buf` is a temporary byte buffer where the string has been copied.
+used as an argument to `ccall` without the risk of having the data garbage
+collected.  Argument `data` can be `nothing`, a dense array or a string.  If
+`data` is an array `buf` is just an alias for `data`.  If `data` is a string,
+`buf` is a temporary byte buffer where the string has been copied.
 
-Standard methods [`pointer`](@ref) and [`sizeof`](@ref) can be applied to `buf`
-to retieve the address and the size (in bytes) of the data and
-`convert(Ptr{Cvoid},buf)` can also be used.
+Standard methods `pointer` and `sizeof` can be applied to `buf` to retieve the
+address and the size (in bytes) of the data and `convert(Ptr{Cvoid},buf)` can
+also be used.
 
 See also [`XPA.set`](@ref).
 
