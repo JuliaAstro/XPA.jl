@@ -28,29 +28,39 @@ const MODE_FILLBUF = convert(Cint, 2)
 const MODE_FREEBUF = convert(Cint, 4)
 const MODE_ACL     = convert(Cint, 8)
 
-# Super type for client and server XPA objects.
+"""
+
+Abstract type `XPA.Handle` is the super type of client ([`XPA.Client`](@ref))
+and server ([`XPA.Server`](@ref)) connections in the XPA Messaging System.
+
+"""
 abstract type Handle end
 
-# XPA client, must be mutable to be finalized.
-mutable struct Client <: Handle
+"""
+
+An instance of the mutable structure `XPA.Client` represents a client
+connection in the XPA Messaging System.
+
+"""
+mutable struct Client <: Handle # must be mutable to be finalized
     ptr::Ptr{Cvoid} # pointer to XPARec structure
 end
 
 """
 
-`TupleOf{T}` represents a tuple of any number of elements of type `T`, it is an
-alias for `Tuple{Vararg{T}}`
+`XPA.TupleOf{T}` represents a tuple of any number of elements of type `T`, it
+is an alias for `Tuple{Vararg{T}}`
 
 """
 const TupleOf{T} = Tuple{Vararg{T}}
 
 """
 
-`Reply` is used to store the answer(s) of an [`XPA.get`](@ref) request.  Method
-`length` applied to an object of type `Reply` yields the number of replies.
-Methods [`XPA.get_data`](@ref), [`XPA.get_server`](@ref) and
-[`XPA.get_message`](@ref) can be used to retrieve the contents of an object of
-type `Reply`.
+`XPA.Reply` is used to store the answer(s) of [`XPA.get`](@ref) and
+[`XPA.set`](@ref) requests.  Method `length` applied to an object of type
+`Reply` yields the number of replies.  Methods [`XPA.get_data`](@ref),
+[`XPA.get_server`](@ref) and [`XPA.get_message`](@ref) can be used to retrieve
+the contents of an object of type `XPA.Reply`.
 
 """
 mutable struct Reply
@@ -61,22 +71,39 @@ end
 
 Base.length(rep::Reply) = rep.replies
 
-# XPA server, must be mutable to be finalized.
-mutable struct Server <: Handle
+"""
+
+An instance of the mutable structure `XPA.Server` represents a server
+connection in the XPA Messaging System.
+
+"""
+mutable struct Server <: Handle # must be mutable to be finalized
     ptr::Ptr{Cvoid} # pointer to XPARec structure
 end
 
 abstract type Callback end
 
+"""
+
+An instance of the `XPA.SendCallback` structure represents a callback called to
+serve an [`XPA.get`](@ref) request.
+
+"""
 struct SendCallback{T} <: Callback
-    send::Function # function to call on `XPAGet` requests
+    send::Function # function to call on `XPA.get` requests
     data::T        # client data
     acl::Bool      # enable access control
     freebuf::Bool  # free buf after callback completes
 end
 
+"""
+
+An instance of the `XPA.ReceiveCallback` structure represents a callback called
+to serve an [`XPA.set`](@ref) request.
+
+"""
 struct ReceiveCallback{T} <: Callback
-    recv::Function # function to call on `XPASet` requests
+    recv::Function # function to call on `XPA.set` requests
     data::T        # client data
     acl::Bool      # enable access control
     buf::Bool      # server expects data bytes from client
@@ -84,6 +111,13 @@ struct ReceiveCallback{T} <: Callback
     freebuf::Bool  # free buffer after callback completes
 end
 
+"""
+
+An instance of the `XPA.AccessPoint` structure represents an available XPA
+server.  A vector of such instances is returned by the [`XPA.list`](@ref)
+utility.
+
+"""
 struct AccessPoint
     class::String # class of the access point
     name::String  # name of the access point
@@ -93,5 +127,10 @@ struct AccessPoint
     access::UInt  # allowed access
 end
 
-# Singleton to represent a NULL-buffer.
+"""
+
+`XPA.NullBuffer` is a singleton type representing a NULL-buffer when sending
+data to a server.
+
+"""
 struct NullBuffer end
