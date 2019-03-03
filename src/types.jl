@@ -89,8 +89,8 @@ An instance of the `XPA.SendCallback` structure represents a callback called to
 serve an [`XPA.get`](@ref) request.
 
 """
-struct SendCallback{T} <: Callback
-    send::Function # function to call on `XPA.get` requests
+struct SendCallback{T,F<:Function} <: Callback
+    send::F        # function to call on `XPA.get` requests
     data::T        # client data
     acl::Bool      # enable access control
     freebuf::Bool  # free buf after callback completes
@@ -102,8 +102,8 @@ An instance of the `XPA.ReceiveCallback` structure represents a callback called
 to serve an [`XPA.set`](@ref) request.
 
 """
-struct ReceiveCallback{T} <: Callback
-    recv::Function # function to call on `XPA.set` requests
+struct ReceiveCallback{T,F<:Function} <: Callback
+    recv::F        # function to call on `XPA.set` requests
     data::T        # client data
     acl::Bool      # enable access control
     buf::Bool      # server expects data bytes from client

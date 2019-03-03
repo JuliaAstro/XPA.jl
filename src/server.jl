@@ -169,11 +169,11 @@ Also see: [`XPA.Server`](@ref), [`XPA.setbuf!`](@ref),
 [`XPA.ReceiveCallback`](@ref).
 
 """
-function SendCallback(func::Function,
+function SendCallback(func::F,
                       data::T = nothing;
                       acl::Bool = true,
-                      freebuf::Bool = true) where T
-    SendCallback{T}(func, data, acl, freebuf)
+                      freebuf::Bool = true) where {T,F<:Function}
+    return SendCallback{T,F}(func, data, acl, freebuf)
 end
 
 """
@@ -192,13 +192,13 @@ cases are currently managed, so it is recommended to keep the default values.
 Also see: [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref).
 
 """
-function ReceiveCallback(func::Function,
+function ReceiveCallback(func::F,
                          data::T = nothing;
                          acl::Bool = true,
                          buf::Bool = true,
                          fillbuf::Bool = true,
-                         freebuf::Bool = true) where T
-    ReceiveCallback{T}(func, data, acl, buf, fillbuf, freebuf)
+                         freebuf::Bool = true) where {T,F<:Function}
+    return ReceiveCallback{T,F}(func, data, acl, buf, fillbuf, freebuf)
 end
 
 function _send(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
