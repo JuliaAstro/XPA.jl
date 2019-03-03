@@ -89,7 +89,8 @@ An instance of the `XPA.SendCallback` structure represents a callback called to
 serve an [`XPA.get`](@ref) request.
 
 """
-struct SendCallback{T,F<:Function} <: Callback
+mutable struct SendCallback{T,F<:Function} <: Callback
+    # must be mutable because pointer_from_objref is used to recover it
     send::F        # function to call on `XPA.get` requests
     data::T        # client data
     acl::Bool      # enable access control
@@ -102,7 +103,8 @@ An instance of the `XPA.ReceiveCallback` structure represents a callback called
 to serve an [`XPA.set`](@ref) request.
 
 """
-struct ReceiveCallback{T,F<:Function} <: Callback
+mutable struct ReceiveCallback{T,F<:Function} <: Callback
+    # must be mutable because pointer_from_objref is used to recover it
     recv::F        # function to call on `XPA.set` requests
     data::T        # client data
     acl::Bool      # enable access control
