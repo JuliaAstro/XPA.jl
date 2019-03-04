@@ -73,7 +73,7 @@ which may be zero if no servers have answered the request (the maximum number
 of answers can be specified via the `nmax` keyword of [`XPA.get`](@ref); by
 default, `nmax=1` to retrieve at most one answer).
 
-There may be errors or messages associated with the answers.  The check whether
+There may be errors or messages associated with the answers.  To check whether
 the `i`-th answer has an associated error message, call the
 [`XPA.has_error`](@ref) method:
 
@@ -97,8 +97,9 @@ XPA.has_errors(rep) -> boolean
 ```
 
 To avoid checking for errors for every answer to all requests, the
-[`XPA.get`](@ref) method has a `check` keyword that can be set `true` in order
-to automatically throw an exception if there are any errors in the answers.
+[`XPA.get`](@ref) method has a `throwerrors` keyword that can be set `true` in
+order to automatically throw an exception if there are any errors in the
+answers.
 
 The check whether the `i`-th answer has an associated message, call the
 [`XPA.has_message`](@ref) method:
@@ -173,7 +174,7 @@ XPA.get_data(Array{S,N}, (dim1, ..., dimN), [xpa,] apt, args...) -> arr::Array{S
 ```
 
 In that case, exactly one answer and no errors are expected from the request
-(as if `nmax=1` and `check=true` were specified).
+(as if `nmax=1` and `throwerrors=true` were specified).
 
 
 ## Examples
@@ -184,7 +185,7 @@ and identified the address of a SAOImage-DS9 server.  For instance:
 ```julia
 using XPA
 conn = XPA.Client()
-addr = split(XPA.get_server(XPA.get(conn, "DS9:*", "version"; nmax=1, check=true)); keepempty=false)[2]
+addr = split(XPA.get_server(XPA.get(conn, "DS9:*", "version"; nmax=1, throwerrors=true)); keepempty=false)[2]
 ds9 = (conn, addr)
 ```
 

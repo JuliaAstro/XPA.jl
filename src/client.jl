@@ -108,16 +108,16 @@ are available:
 * Keyword `nmax` specifies the maximum number of answers, `nmax=1` by default.
   Specify `nmax=-1` to use the maximum number of XPA hosts.
 
-* Keyword `check` specifies whether to check for errors.  If this keyword is set
-  true, an error is thrown for the first error message encountered in the
-  list of answers.  By default, `check` is false.
+* Keyword `throwerrors` specifies whether to check for errors.  If this keyword
+  is set true, an exception is thrown for the first error message encountered
+  in the list of answers.  By default, `throwerrors` is false.
 
 * Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
 If `T` and, possibly, `dims` are specified, a single answer and no errors are
-expected (as if `nmax=1` and `check=true`) and the data part of the answer is
-converted according to `T` which must be a type and `dims` which is an optional
-list of dimensions:
+expected (as if `nmax=1` and `throwerrors=true`) and the data part of the
+answer is converted according to `T` which must be a type and `dims` which is
+an optional list of dimensions:
 
 * If only `T` is specified, it can be `String` to return a string interpreting
   the data as ASCII characters or a type like `Vector{S}` to return the largest
@@ -127,7 +127,8 @@ list of dimensions:
   `Array{S,N}` and `dims` a list of `N` dimensions to retrieve the data as an
   array of type `Array{S,N}`.
 
-See also: [`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref).
+See also [`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref) and
+[`XPA.verify`](@ref).
 
 """
 function get(xpa::Client,
@@ -135,8 +136,8 @@ function get(xpa::Client,
              cmd::AbstractString;
              mode::AbstractString = "",
              nmax::Integer = 1,
-             check::Bool = false)
-    return _get(xpa, apt, cmd, mode, _nmax(nmax), check)
+             throwerrors::Bool = false)
+    return _get(xpa, apt, cmd, mode, _nmax(nmax), throwerrors)
 end
 
 function get(xpa::Client,
@@ -149,7 +150,7 @@ end
 get(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
     get(TEMPORARY, apt, _join(args); kwds...)
 
-_get1(args...; kwds...) = get(args...; nmax = 1, check = true, kwds...)
+_get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
 
 function get(::Type{Vector{T}},
              args...; kwds...) :: Vector{T} where {T}
@@ -181,7 +182,7 @@ function get(::Type{String}, args...; kwds...)
 end
 
 function _get(xpa::Client, apt::AbstractString, params::AbstractString,
-              mode::AbstractString, nmax::Int, check::Bool)
+              mode::AbstractString, nmax::Int, throwerrors::Bool)
     lengths = fill!(Vector{Csize_t}(undef, nmax), 0)
     buffers = fill!(Vector{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
     address = pointer(buffers)
@@ -193,7 +194,7 @@ function _get(xpa::Client, apt::AbstractString, params::AbstractString,
                     address + offset, address + 2*offset, nmax)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPAGet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
-    check && verify(rep; throwerrors=true)
+    throwerrors && verify(rep; throwerrors=true)
     return rep
 end
 
@@ -548,11 +549,11 @@ The following keywords are available:
 
 * `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
-* `check` specifies whether to check for errors.  If this keyword is set
-  `true`, an error is thrown for the first error message encountered in the
-  list of answers.  By default, `check` is false.
+* `throwerrors` specifies whether to check for errors.  If this keyword is set
+  `true`, an exception is thrown for the first error message encountered in the
+  list of answers.  By default, `throwerrors` is false.
 
-See also: [`XPA.Client`](@ref), [`XPA.get`](@ref).
+See also [`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
 
 """
 function set(xpa::Client,
@@ -561,8 +562,8 @@ function set(xpa::Client,
              data = nothing,
              mode::AbstractString = "",
              nmax::Integer = 1,
-             check::Bool = false)
-    return _set(xpa, apt, cmd, mode, buffer(data), _nmax(nmax), check)
+             throwerrors::Bool = false)
+    return _set(xpa, apt, cmd, mode, buffer(data), _nmax(nmax), throwerrors)
 end
 
 function set(xpa::Client,
@@ -577,7 +578,7 @@ set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
 
 function _set(xpa::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, data::Union{NullBuffer,DenseArray},
-              nmax::Int, check::Bool)
+              nmax::Int, throwerrors::Bool)
 
     lengths = fill!(Vector{Csize_t}(undef, nmax), 0)
     buffers = fill!(Vector{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
@@ -590,7 +591,7 @@ function _set(xpa::Client, apt::AbstractString, params::AbstractString,
               address + offset, address + 2*offset, nmax)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPASet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
-    check && verify(rep; throwerrors=true)
+    throwerrors && verify(rep; throwerrors=true)
     return rep
 end
 
