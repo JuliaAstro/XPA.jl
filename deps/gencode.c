@@ -16,7 +16,54 @@
 /*
  * Determine the offset of a field in a structure.
  */
-#define OFFSET(type, field) (int)((char*)&((type*)0)->field - (char*)0)
+#define OFFSET_OF(type, field) (int)((char*)&((type*)0)->field - (char*)0)
+
+/*
+ * Determine whether an integer type is signed.
+ */
+#define IS_SIGNED(type)        ((type)(~(type)0) < (type)0)
+
+/*
+ * Set all the bits of an L-value.
+ */
+#define SET_ALL_BITS(lval) lval = 0; lval = ~lval
+
+/*
+ * Define a Julia alias for a C integer, given an L-value of the corresponding
+ * type.
+ */
+#define DEF_TYPEOF_LVALUE(name, lval)           \
+  do {                                          \
+    SET_ALL_BITS(lval);                         \
+    printf("const _typeof_%s = %sInt%u\n",      \
+           name, (lval < 0 ? "" : "U"),         \
+           (unsigned)(8*sizeof(lval)));         \
+                                                \
+  } while (0)
+
+/*
+ * Define a Julia alias for a C integer, given its type (`space` is used for
+ * alignment).
+ */
+#define DEF_TYPEOF_TYPE(type, space)            \
+  do {                                          \
+    type lval;                                  \
+    SET_ALL_BITS(lval);                         \
+    printf("const _typeof_%s%s = %sInt%u\n",    \
+           #type, space, (lval < 0 ? "" : "U"), \
+           (unsigned)(8*sizeof(lval)));         \
+                                                \
+  } while (0)
+
+#define DEF_TYPEOF_FIELD(name, type, field)     \
+  do {                                          \
+    type obj;                                   \
+    SET_ALL_BITS(obj.field);                    \
+    printf("const _typeof_%s = %sInt%u\n",      \
+           name, (obj.field < 0 ? "" : "U"),    \
+           (unsigned)(8*sizeof(obj.field)));    \
+                                                \
+  } while (0)
 
 /*
  * Define a Julia constant with the offset (in bytes) of a field of a
@@ -24,7 +71,7 @@
  */
 #define DEF_OFFSETOF(ident, type, field)                \
   fprintf(output, "const _offsetof_" ident " = %3ld\n", \
-          (long)OFFSET(type, field))
+          (long)OFFSET_OF(type, field))
 
 int main(int argc, char* argv[])
 {
@@ -72,14 +119,19 @@ int main(int argc, char* argv[])
   fprintf(output, "const XPA_NAMELEN = %d\n", XPA_NAMELEN);
 
   fprintf(output, "\n");
-  fprintf(output, "# Field offsets in main XPARec structure.\n");
-  DEF_OFFSETOF("class    ", XPARec, xclass);
-  DEF_OFFSETOF("name     ", XPARec, name);
-  DEF_OFFSETOF("send_mode", XPARec, send_mode);
-  DEF_OFFSETOF("recv_mode", XPARec, receive_mode);
-  DEF_OFFSETOF("method   ", XPARec, method);
-  DEF_OFFSETOF("sendian  ", XPARec, sendian);
-  DEF_OFFSETOF("comm     ", XPARec, comm);
+  fprintf(output, "# Types of fields in main XPARec structure.\n");
+  DEF_TYPEOF_FIELD("send_mode   ",  XPARec, send_mode);
+  DEF_TYPEOF_FIELD("receive_mode",  XPARec, receive_mode);
+
+  fprintf(output, "\n");
+  fprintf(output, "# Offsets of fields in main XPARec structure.\n");
+  DEF_OFFSETOF("class       ", XPARec, xclass);
+  DEF_OFFSETOF("name        ", XPARec, name);
+  DEF_OFFSETOF("send_mode   ", XPARec, send_mode);
+  DEF_OFFSETOF("receive_mode", XPARec, receive_mode);
+  DEF_OFFSETOF("method      ", XPARec, method);
+  DEF_OFFSETOF("sendian     ", XPARec, sendian);
+  DEF_OFFSETOF("comm        ", XPARec, comm);
 
   fprintf(output, "\n");
   fprintf(output, "# Field offsets in XPACommRec structure.\n");
