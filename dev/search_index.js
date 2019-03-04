@@ -13,7 +13,7 @@ var documenterSearchIndex = {"docs": [
     "page": "The XPA.jl package",
     "title": "The XPA.jl package",
     "category": "section",
-    "text": "XPA Messaging System provides seamless communication between many kinds of Unix/Windows programs, including X programs, Tcl/Tk programs or some popular astronomical tools such as SAOImage-DS9.XPA.jl provides a Julia interface to the XPA messaging system.  XPA.jl can be used to send data ro commands to XPA servers or to query data from XPA servers.  XPA.jl can also be used to implement an XPA server. The package exploits the power of ccall to directly call the routines of the compiled XPA library."
+    "text": "XPA Messaging System provides seamless communication between many kinds of Unix/Windows programs, including X programs, Tcl/Tk programs.  It is used to control some popular astronomical tools such as SAOImage-DS9.XPA.jl provides a Julia interface to the XPA Messaging System.  XPA.jl can be used to send data or commands to XPA servers, to query data from XPA servers or to implement an XPA server.  The package exploits the power of ccall to directly call the routines of the compiled XPA library."
 },
 
 {
