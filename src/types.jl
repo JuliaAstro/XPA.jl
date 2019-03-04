@@ -22,11 +22,12 @@ const SUCCESS = convert(Cint,  0)
 const FAILURE = convert(Cint, -1)
 @doc @doc(SUCCESS) FAILURE
 
-# Server mode flags for receive, send, info.
-const MODE_BUF     = convert(Cint, 1)
-const MODE_FILLBUF = convert(Cint, 2)
-const MODE_FREEBUF = convert(Cint, 4)
-const MODE_ACL     = convert(Cint, 8)
+# Server mode flags for receive, send, info.  These constants are defined
+# in the *private* header file `xpap.h`.
+const MODE_BUF     = 1 # XPA_MODE_BUF in `xpap.h`
+const MODE_FILLBUF = 2 # XPA_MODE_FILLBUF in `xpap.h`
+const MODE_FREEBUF = 4 # XPA_MODE_FREEBUF in `xpap.h`
+const MODE_ACL     = 8 # XPA_MODE_ACL in `xpap.h`
 
 """
 
