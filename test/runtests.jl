@@ -13,7 +13,7 @@ module XPATests
 using XPA
 import Base: RefValue
 
-const VERBOSE = false
+const VERBOSE = true
 
 function sproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
                 buf::XPA.SendBuffer)
@@ -21,7 +21,7 @@ function sproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
         VERBOSE && println("send: $params")
         result = 42
         try
-            XPA.setbuffer!(bufptr, lenptr, result)
+            XPA.store!(buf, result)
             return XPA.SUCCESS
         catch err
             error(srv, err)
@@ -35,8 +35,8 @@ function rproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
 
     status = XPA.SUCCESS
     if running[]
-        VERBOSE && println("receive: $params [$len byte(s)]")
-        #arr = unsafe_wrap(Array, buf, len, own=false)
+        nbytes = sizeof(buf)
+        VERBOSE && println("receive: $params [$nbytes byte(s)]")
         if params == "quit"
             running[] = false
         elseif params == "greetings"
@@ -62,7 +62,7 @@ function sproc2(::Nothing, srv::XPA.Server, params::String,
     VERBOSE && println("send: $params")
     result = 42
     try
-        XPA.setbuffer!(bufptr, lenptr, result)
+        XPA.store!(buf, result)
         return XPA.SUCCESS
     catch err
         error(srv, err)
@@ -78,6 +78,9 @@ function rproc2(::Nothing, srv::XPA.Server, params::String,
         close(srv)
     elseif params == "greetings"
         status = XPA.message(srv, "hello folks!")
+    else
+        nbytes = sizeof(buf)
+        status = XPA.message(srv, "I received $nbytes from you, thanks!\n")
     end
     return status
 end

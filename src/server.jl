@@ -45,7 +45,7 @@ private data (`sdata` below) as summarized by the following typical example:
 function sfunc(sdata::S, srv::XPA.Server, params::String, buf::XPA.SendBuffer)
     result = ... # build up the result of the request
     try
-        XPA.setbuffer!(buf, result)
+        XPA.store!(buf, result)
         return XPA.SUCCESS
     catch err
         error(srv, err)
@@ -72,10 +72,9 @@ private data (`rdata` below) as summarized by the following typical example:
 # Method to handle a send request:
 function rfunc(rdata::R, srv::XPA.Server, params::String, buf::XPA.ReceiveBuffer)
     println("receive: \$params")
-    arr = unsafe_wrap(Array, pointer(buf), sizeof(buf), own=false)
-    ...
-    # FIXME: What happens if the array `arr` is returned?  We should make a
-    #        copy?
+    # Temporarily wrap the received data into an array.
+    bytes = XPA.peek(Vector{UInt8}, buf; temporary=true)
+    ... # process the received bytes
     return XPA.SUCCESS
 end
 
@@ -93,8 +92,9 @@ if no error occurs, or [`XPA.FAILURE`](@ref) to signal an error.  The Julia XPA
 package takes care of maintaining a reference on the client data and callback
 methods.
 
-Also see: [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.setbuffer!`](@ref),
-          [`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref).
+See also [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.store!`](@ref),
+[`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref) and
+[`XPA.peek`](@ref).
 
 """
 function Server(class::AbstractString,
@@ -136,14 +136,14 @@ _callback(::ReceiveCallback) = _RECV_REF[]
 _context(::Nothing) = C_NULL
 _context(cb::Callback) = pointer_from_objref(cb)
 _mode(::Nothing) = ""
-_mode(cb::SendCallback) = "acl=$(cb.acl),freebuf=$(cb.freebuf)"
+_mode(cb::SendCallback) = "acl=$(cb.acl),freebuf=true"
 _mode(cb::ReceiveCallback) =
-    "acl=$(cb.acl),buf=$(cb.buf),fillbuf=$(cb.fillbuf),freebuf=$(cb.freebuf)"
+    "acl=$(cb.acl),buf=true,fillbuf=true,freebuf=true"
 
 # The following method is called upon garbage collection of an XPA server.
 function Base.close(srv::Server)
     if (ptr = srv.ptr) != C_NULL
-        srv.ptr = C_NULL
+        srv.ptr = C_NULL # avoid closing more than once!
         ccall((:XPAFree, libxpa), Cint, (Ptr{Cvoid},), ptr)
         haskey(_SERVERS, ptr) && pop!(_SERVERS, ptr)
     end
@@ -152,59 +152,87 @@ end
 
 """
 ```julia
-SendCallback(func, data=nothing)
+SendCallback(func, data=nothing; acl=true)
 ```
 
 yields an instance of `SendCallback` for sending the data requested by a call
-to `XPA.get` (or similar) to an XPA server.  Argument `func` is the method to
-be called to process the request and optional argument `data` is some
+to [`XPA.get`](@ref) (or similar) to an XPA server.  Argument `func` is the
+method to be called to process the request and optional argument `data` is some
 associated contextual data.
 
-Although keywords are available to tune the behavior of the server, not all
-cases are currently managed, so it is recommended to keep the default values.
+Keyword `acl` can be used to specify whether access control is enabled (true by
+default).
 
-Also see: [`XPA.Server`](@ref), [`XPA.setbuffer!`](@ref),
+!!! note
+    The `freebuf` option is not available because we are always assuming that
+    the answer to a [`XPA.get`](@ref) request is a dynamically allocated buffer
+    which is automatically deleted by the XPA library.  This is like imposing
+    that the `freebuf` option is laways true.  This choice has been made
+    because it would otherwise be difficult to warrant that data passed by a
+    Julia send callback be not garbage collected before being fully transfered
+    to the client.
+
+See also [`XPA.Server`](@ref), [`XPA.store!`](@ref) and
 [`XPA.ReceiveCallback`](@ref).
 
 """
 function SendCallback(func::F,
                       data::T = nothing;
-                      acl::Bool = true,
-                      freebuf::Bool = true) where {T,F<:Function}
-    return SendCallback{T,F}(func, data, acl, freebuf)
+                      acl::Bool = true) where {T,F<:Function}
+    return SendCallback{T,F}(func, data, acl)
 end
 
 """
 ```julia
-ReceiveCallback(func, data=nothing)
+ReceiveCallback(func, data=nothing; acl=true)
 ```
 
-yields an instance of `ReceiveCallback` for processing the data sent
-by a call to `XPA.set` (or similar) to an XPA server.  Argument `rfunc`
-is the method to be called to process the request and optional argument
-`data` is some associated contextual data.
+yields an instance of `ReceiveCallback` for processing the data sent by a call
+to [`XPA.set`](@ref) (or similar) to an XPA server.  Argument `rfunc` is the
+method to be called to process the request and optional argument `data` is some
+associated contextual data.
 
-Although keywords are available to tune the behavior of the server, not all
-cases are currently managed, so it is recommended to keep the default values.
+Keyword `acl` can be used to specify whether access control is enabled (true by
+default).
 
-Also see: [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref).
+!!! note
+    The `buf`, `fillbuf` and `freebuf` options are not available because we are
+    always assuming that the data buffer accompanying an [`XPA.set`](@ref)
+    request is always provided as a dynamically allocated buffer by the XPA
+    library.  This is like imposing that the `buf`, `fillbuf` and `freebuf`
+    options are always true.  This choice has been made because it would
+    otherwise be difficult to warrant that data passed to a Julia receive
+    callback can be safely stealed by Julia.
+
+Also see [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref) and
+[`XPA.set`](@ref).
 
 """
 function ReceiveCallback(func::F,
                          data::T = nothing;
-                         acl::Bool = true,
-                         buf::Bool = true,
-                         fillbuf::Bool = true,
-                         freebuf::Bool = true) where {T,F<:Function}
-    return ReceiveCallback{T,F}(func, data, acl, buf, fillbuf, freebuf)
+                         acl::Bool = true) where {T,F<:Function}
+    return ReceiveCallback{T,F}(func, data, acl)
 end
 
+const _MINIMAL_SEND_MODE = MODE_FREEBUF
+const _MINIMAL_RECEIVE_MODE = (MODE_BUF | MODE_FILLBUF | MODE_FREEBUF)
+
+getsendmode(xpa::Server) =
+    (xpa.ptr == C_NULL ? zero(_typeof_send_mode) :
+     unsafe_load(Ptr{_typeof_send_mode}(xpa.ptr + _offsetof_send_mode)))
+
+getreceivemode(xpa::Server) =
+    (xpa.ptr == C_NULL ? zero(_typeof_receive_mode) :
+     unsafe_load(Ptr{_typeof_receive_mode}(xpa.ptr + _offsetof_receive_mode)))
+
+# The send callback is executed in response to an external request from the
+# `xpaget` program, the `XPAGet()` routine, or `XPAGetFd()` routine.
 function _send(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
                bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})::Cint
     # Check assumptions.
     srv = Server(handle)
-    (get_send_mode(srv) & MODE_FREEBUF) != 0 ||
-        return error(srv, "send mode must have `freebuf` option set")
+    (getsendmode(srv) & _MINIMAL_SEND_MODE) == _MINIMAL_SEND_MODE ||
+        return error(srv, "send mode must have option `freebuf=true`")
 
     # Call actual callback providing the client data is the address of a known
     # SendCallback object.
@@ -220,16 +248,18 @@ _send(cb::SendCallback, srv::Server, params::String, buf::SendBuffer) =
 # `xpaset` program, the `XPASet()` routine, or `XPASetFd()` routine.
 function _recv(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
                buf::Ptr{Byte}, len::Csize_t)::Cint
+    # Check assumptions.
+    srv = Server(handle)
+    (getreceivemode(srv) & _MINIMAL_RECEIVE_MODE) == _MINIMAL_RECEIVE_MODE ||
+        return error(srv, "receive mode must have options `buf=true`, `fillbuf=true` and `freebuf=true`")
+
     # Call actual callback providing the client data is the address of a known
     # ReceiveCallback object.
-    return _recv(unsafe_pointer_to_objref(clientdata), Server(handle),
+    return _recv(unsafe_pointer_to_objref(clientdata), srv,
                  (params == C_NULL ? "" : unsafe_string(params)),
                  ReceiveBuffer(buf, len))
 end
 
-# If the receive callback mode has option `freebuf=false`, then `buf` must be
-# managed by the callback, by default `freebuf=true` and the buffer is
-# automatically released after callback completes.
 _recv(cb::ReceiveCallback, srv::Server, params::String, buf::ReceiveBuffer) =
     cb.recv(cb.data, srv, params, buf)
 
@@ -291,37 +321,43 @@ message(srv::Server, msg::AbstractString) =
 
 """
 ```julia
-XPA.setbuffer!(buf, data)
+XPA.store!(buf, data)
 ```
 
 or
 
 ```julia
-XPA.setbuffer!(buf, ptr, len)
+XPA.store!(buf, ptr, len)
 ```
 
-store at the addresses given by the send buffer `buf` the address and size of a
-dynamically allocated buffer storing the contents of `data` (or a copy of the
-`len` bytes at address `ptr`).  This method is meant to be used in the *send*
-callback to store the result of an [`XPA.get`](@ref) request processed by an
-XPA server
+store into the send buffer `buf` a dynamically allocated copy of the contents
+of `data` or of the `len` bytes at address `ptr`.
 
-We are always assuming that the answer to a [`XPA.get`](@ref) request is a
-dynamically allocated buffer which is deleted by `XPAHandler`.
+!!! warning
+    This method is meant to be used in a *send* callback to store the result of
+    an [`XPA.get`](@ref) request processed by an XPA server.  Memory leaks are
+    expected if used in another context.
 
 See also [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref) and
 [`XPA.get`](@ref).
 
 """
-function setbuffer!(buf::SendBuffer, ptr::Ptr{Byte}, len::Integer)
-    # FIXME: We are always assuming that the answer to a XPAGet request is a
-    #        dynamically allocated buffer which is deleted by `XPAHandler`.  We
-    #        should make sure of that.
-
-    # This function is similar to `XPASetBuf` except that it verifies that no
-    # prior buffer has been set.
-    (unsafe_load(buf.bufptr) == NULL && unsafe_load(buf.lenptr) == 0) ||
-        error("setbuffer! can be called only once per request")
+function store!(buf::SendBuffer, ptr::Ptr{Byte}, len::Integer)
+    # Before calling the send callback (see xpa.c), the buffer is empty
+    # (*bufptr = NULL and *lenptr = 0).  On return of the send callback with a
+    # successful status, if there are any data (*bufptr != NULL and *lenptr >
+    # 0), this data is sent to the client.  Then, whatever the status and if
+    # freebuf is true, the data buffer is destroy with free() or any specific
+    # function set with XPASetFree().
+    #
+    # This function is similar to `XPASetBuf` except that it makes a dynamic
+    # copy of the data to send (because option `freebuf` is always true) and
+    # destroys any buffer which could have been set before.
+    if (tmp = unsafe_load(buf.bufptr)) != NULL && unsafe_load(buf.lenptr) > 0
+        unsafe_store!(buf.lenptr, 0)
+        unsafe_store!(buf.bufptr, NULL)
+        _free(tmp)
+    end
     if ptr != NULL
         len > 0 || error("invalid number of bytes ($len) for non-NULL pointer")
         unsafe_store!(buf.bufptr, _memcpy(_malloc(len), ptr, len))
@@ -332,31 +368,148 @@ function setbuffer!(buf::SendBuffer, ptr::Ptr{Byte}, len::Integer)
     return nothing
 end
 
-setbuffer!(buf::SendBuffer, ::Nothing) = setbuffer!(buf, NULL, 0)
+store!(buf::SendBuffer, ::Nothing) = store!(buf, NULL, 0)
 
-setbuffer!(buf::SendBuffer, val::Union{Symbol,AbstractString}) =
-    setbuffer!(buf, String(val))
+store!(buf::SendBuffer, val::Union{Symbol,AbstractString}) =
+    store!(buf, String(val))
 
-setbuffer!(buf::SendBuffer, str::String) =
-    setbuffer!(buf.bufptr, buf.lenptr,
+store!(buf::SendBuffer, str::String) =
+    store!(buf.bufptr, buf.lenptr,
                Base.unsafe_convert(Ptr{Byte}, str), sizeof(str))
 
-function setbuffer!(buf::SendBuffer, arr::DenseArray{T,N}) where {T, N}
+function store!(buf::SendBuffer, arr::DenseArray{T,N}) where {T, N}
     @assert isbitstype(T)
-    setbuffer!(buf.bufptr, buf.lenptr,
+    store!(buf.bufptr, buf.lenptr,
                convert(Ptr{Byte}, pointer(arr)), sizeof(arr))
 end
 
-function setbuffer!(buf::SendBuffer, val::T) where {T}
+function store!(buf::SendBuffer, val::T) where {T}
     @assert isbitstype(T)
-    (unsafe_load(buf.bufptr) == NULL && unsafe_load(buf.lenptr) == 0) ||
-        error("setbuffer! can be called only once")
+    if (tmp = unsafe_load(buf.bufptr)) != NULL && unsafe_load(buf.lenptr) > 0
+        unsafe_store!(buf.lenptr, 0)
+        unsafe_store!(buf.bufptr, NULL)
+        _free(tmp)
+    end
     len = sizeof(T)
     ptr = _malloc(len)
     unsafe_store!(convert(Ptr{T}, ptr), val)
     unsafe_store!(buf.bufptr, ptr)
     unsafe_store!(buf.lenptr, len)
     return nothing
+end
+
+function Base.copyto!(dst::AbstractArray{T,N},
+                      buf::ReceiveBuffer) where {T,N}
+    @assert isbitstype(T)
+    sizeof(T)*length(dst) ≤ sizeof(buf) ||
+        error("data buffer is too small for array")
+    return copyto!(dst, unsafe_wrap(Array, Ptr{T}(pointer(buf)), size(dst),
+                                    own=false))
+end
+
+
+"""
+```julia
+XPA.peek(T, buf, i=1) -> val
+```
+
+yields the `i`-th binary value of type `T` stored into receive buffer `buf`.
+Bounds checking is performed unless `@inbounds` is active.
+
+Another usage of the `XPA.peek` method is to *convert* the contents of the
+receive buffer into an array:
+
+```julia
+XPA.peek(Vector{T}, [len,] buf) -> vec
+XPA.peek(Array{T[,N]}, (dim1, ..., dimN), buf) -> arr
+```
+
+yield a Julia vector `vec` or array `arr` whose elements are of type `T` and
+dimensions are `len` or `(dim1, ..., dimN)`.  For a vector, if the length is
+unspecified, the vector of maximal length that fits in the buffer is returned.
+
+If keyword `temporary` is true, then `unsafe_wrap` is called (with option
+`own=false`) to wrap the buffer contents into a Julia array whose life-time
+cannot exceeds that of the callback.  Otherwise, a copy of the buffer contents
+is returned.
+
+See also [`XPA.ReceiveCallback`](@ref).
+
+"""
+@inline function peek(::Type{T},
+                      buf::ReceiveBuffer,
+                      i::Int=1)::T where {T}
+    @assert isbitstype(T)
+    @boundscheck checkbounds(T, buf, i)
+    return unsafe_load(Ptr{T}(pointer(buf)), j)
+end
+
+@inline @propagate_inbounds function peek(::Type{T},
+                                          buf::ReceiveBuffer,
+                                          i::Integer) where {T}
+    return peek(T, buf, Int(i))
+end
+
+Base.checkbounds(::Type{T}, buf::ReceiveBuffer, i::Int=1) where {T} =
+    1 ≤ i && i*sizeof(T) ≤ sizeof(buf) || error("out of range index")
+
+function peek(::Type{Vector{T}},
+              buf::ReceiveBuffer;
+              temporary::Bool=false)::Vector{T} where {T}
+    @assert isbitstype(T)
+    local vec::Vector{T}
+    len = div(sizeof(buf), sizeof(T))
+    if temporary
+        vec = unsafe_wrap(Array, Ptr{T}(pointer(buf)), len)
+    else
+        vec = Vector{T}(undef, len)
+        nbytes = sizeof(T)*len
+        nbytes > 0 && _memcpy(pointer(vec), pointer(buf), nbytes)
+    end
+    return vec
+end
+
+function peek(::Type{Vector{T}},
+              len::Integer,
+              buf::ReceiveBuffer;
+              kwds...)::Vector{T} where {T}
+    return peek(Vector{T}, _dimensions(len), buf; kwds...)
+end
+
+function peek(::Type{Array{T}},
+              dims::NTuple{N,Integer},
+              buf::ReceiveBuffer;
+              kwds...)::Array{T,N} where {T,N}
+    return peek(Array{T,N}, _dimensions(dims), buf; kwds...)
+end
+
+function peek(::Type{Array{T,N}},
+              dims::NTuple{N,Integer},
+              buf::ReceiveBuffer;
+              kwds...)::Array{T,N} where {T,N}
+    return peek(Array{T,N}, _dimensions(dims), buf; kwds...)
+end
+
+function peek(::Type{Array{T,N}},
+              dims::NTuple{N,Int},
+              buf::ReceiveBuffer;
+              temporary::Bool=false)::Array{T,N} where {T,N}
+    @assert isbitstype(T)
+    local arr::Array{T,N}
+    len = 1
+    @inbounds for d in 1:N
+        (dim = dims[d]) < 0 && error("invalid Array dimension")
+        len *= dim
+    end
+    nbytes = sizeof(T)*len
+    nbytes ≤ sizeof(buf) || error("data buffer is too small for array")
+    if temporary
+        arr = unsafe_wrap(Array, Ptr{T}(pointer(buf)), dims)
+    else
+        arr = Array{T,N}(undef, dims)
+        nbytes > 0 && _memcpy(pointer(arr), pointer(buf), nbytes)
+    end
+    return arr
 end
 
 """

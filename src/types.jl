@@ -98,16 +98,16 @@ mutable struct SendCallback{T,F<:Function} <: Callback
     send::F        # function to call on `XPA.get` requests
     data::T        # client data
     acl::Bool      # enable access control
-    freebuf::Bool  # free buf after callback completes
 end
 
 """
 
 An instance of the `XPA.SendBuffer` structure is provided to send callbacks to
 record the addresses where to store the address and size of the data associated
-to the answer of an [`XPA.get`](@ref) request.
+to the answer of an [`XPA.get`](@ref) request.  A send callback shall use
+[`XPA.store!`](@ref) to set the buffer contents.
 
-See also [`XPA.set_buffer!`](@ref), [`XPA.get`](@ref), [`XPA.Server`](@ref)
+See also [`XPA.store!`](@ref), [`XPA.get`](@ref), [`XPA.Server`](@ref)
 and [`XPA.SendCallback`](@ref).
 
 """
@@ -127,9 +127,6 @@ mutable struct ReceiveCallback{T,F<:Function} <: Callback
     recv::F        # function to call on `XPA.set` requests
     data::T        # client data
     acl::Bool      # enable access control
-    buf::Bool      # server expects data bytes from client
-    fillbuf::Bool  # read data into buffer before executing callback
-    freebuf::Bool  # free buffer after callback completes
 end
 
 """
@@ -144,10 +141,15 @@ See also [`XPA.get`](@ref), [`XPA.Server`](@ref) and
 
 """
 struct ReceiveBuffer
-    buf::Ptr{Byte}
-    len::Csize_t
+    ptr::Ptr{Byte}
+    len::Int
+    # Inner constructor that checks parameters at construction time.
+    function ReceiveBuffer(ptr::Ptr{Byte}, len::Integer)
+        @assert ptr == NULL ? len == 0 : len ≥ 0
+        return new(ptr, len)
+    end
 end
-Base.sizeof(buf::ReceiveBuffer)::Int = (buf.ptr != NULL ? Int(buf.len) : 0)
+Base.sizeof(buf::ReceiveBuffer)::Int = buf.len
 Base.pointer(buf::ReceiveBuffer) = buf.ptr
 
 """

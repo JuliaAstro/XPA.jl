@@ -37,7 +37,7 @@ result.
 
 
 ```julia
-XPA.setbuffer!(...)
+XPA.store!(...)
 XPA.get_send_mode(xpa)
 XPA.get_recv_mode(xpa)
 XPA.get_name(xpa)

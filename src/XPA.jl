@@ -14,7 +14,7 @@ module XPA
 export
     XPA_VERSION
 
-using Base: ENV
+using Base: ENV, @propagate_inbounds
 
 isfile(joinpath(@__DIR__, "..", "deps", "deps.jl")) ||
     error("XPA not properly installed.  Please run Pkg.build(\"XPA\")")
