@@ -16,12 +16,12 @@ import Base: RefValue
 const VERBOSE = false
 
 function sproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
-                bufptr::Ptr{Ptr{UInt8}}, lenptr::Ptr{Csize_t})
+                buf::XPA.SendBuffer)
     if running[]
         VERBOSE && println("send: $params")
         result = 42
         try
-            XPA.setbuf!(bufptr, lenptr, result)
+            XPA.setbuffer!(bufptr, lenptr, result)
             return XPA.SUCCESS
         catch err
             error(srv, err)
@@ -31,7 +31,7 @@ function sproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
 end
 
 function rproc1(running::RefValue{Bool}, srv::XPA.Server, params::String,
-                buf::Ptr{UInt8}, len::Integer)
+                buf::XPA.ReceiveBuffer)
 
     status = XPA.SUCCESS
     if running[]
@@ -49,7 +49,7 @@ end
 function main1()
     running = Ref(true)
     server = XPA.Server("TEST", "test1", "help me!",
-                        XPA.SendCallback(sproc, running),
+                        XPA.SendCallback(sproc1, running),
                         XPA.ReceiveCallback(rproc1, running))
     while running[]
         XPA.poll(-1, 1)
@@ -58,11 +58,11 @@ function main1()
 end
 
 function sproc2(::Nothing, srv::XPA.Server, params::String,
-                bufptr::Ptr{Ptr{UInt8}}, lenptr::Ptr{Csize_t})
+                buf::XPA.SendBuffer)
     VERBOSE && println("send: $params")
     result = 42
     try
-        XPA.setbuf!(bufptr, lenptr, result)
+        XPA.setbuffer!(bufptr, lenptr, result)
         return XPA.SUCCESS
     catch err
         error(srv, err)
@@ -71,7 +71,7 @@ function sproc2(::Nothing, srv::XPA.Server, params::String,
 end
 
 function rproc2(::Nothing, srv::XPA.Server, params::String,
-                buf::Ptr{UInt8}, len::Integer)
+                buf::XPA.ReceiveBuffer)
 
     status = XPA.SUCCESS
     if params == "quit"

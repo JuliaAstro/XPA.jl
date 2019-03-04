@@ -99,6 +99,21 @@ end
 
 """
 
+An instance of the `XPA.SendBuffer` structure is provided to send callbacks to
+record the addresses where to store the address and size of the data associated
+to the answer of an [`XPA.get`](@ref) request.
+
+See also [`XPA.set_buffer!`](@ref), [`XPA.get`](@ref), [`XPA.Server`](@ref)
+and [`XPA.SendCallback`](@ref).
+
+"""
+struct SendBuffer
+    bufptr::Ptr{Ptr{Byte}}
+    lenptr::Ptr{Csize_t}
+end
+
+"""
+
 An instance of the `XPA.ReceiveCallback` structure represents a callback called
 to serve an [`XPA.set`](@ref) request.
 
@@ -112,6 +127,24 @@ mutable struct ReceiveCallback{T,F<:Function} <: Callback
     fillbuf::Bool  # read data into buffer before executing callback
     freebuf::Bool  # free buffer after callback completes
 end
+
+"""
+
+An instance of the `XPA.ReceiveBuffer` structure is provided to receive
+callbacks to record the address and the size of the data sent by an
+[`XPA.set`](@ref) request.  Methods `pointer(buf)` and `sizeof(buf)` can be
+used to query the address and the number of bytes of the buffer `buf`.
+
+See also [`XPA.get`](@ref), [`XPA.Server`](@ref) and
+[`XPA.ReceiveCallback`](@ref).
+
+"""
+struct ReceiveBuffer
+    buf::Ptr{Byte}
+    len::Csize_t
+end
+Base.sizeof(buf::ReceiveBuffer)::Int = (buf.ptr != NULL ? Int(buf.len) : 0)
+Base.pointer(buf::ReceiveBuffer) = buf.ptr
 
 """
 

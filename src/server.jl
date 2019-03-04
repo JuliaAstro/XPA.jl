@@ -42,11 +42,10 @@ private data (`sdata` below) as summarized by the following typical example:
 
 ```julia
 # Method to handle a send request:
-function sfunc(sdata::S, srv::XPA.Server, params::String,
-               bufptr::Ptr{Ptr{UInt8}}, lenptr::Ptr{Csize_t})
+function sfunc(sdata::S, srv::XPA.Server, params::String, buf::XPA.SendBuffer)
     result = ... # build up the result of the request
     try
-        XPA.setbuf!(bufptr, lenptr, result)
+        XPA.setbuffer!(buf, result)
         return XPA.SUCCESS
     catch err
         error(srv, err)
@@ -58,9 +57,9 @@ end
 send = XPA.SendCallback(sfunc, sdata)
 ```
 
-with `sdata` the client data (of type `S`) of the send callback, `srv` the XPA
-server serving the request, `params` the parameter list of the
-`[XPA.get](@ref)` call, `bufptr` and `lenptr` the addresses where to store the
+Here `sdata` is the client data (of type `S`) of the send callback, `srv` is
+the XPA server serving the request, `params` is the parameter list of the
+`[XPA.get](@ref)` call and `buf` specifies the addresses where to store the
 result of the request and its size (in bytes).
 
 The receive callback will be called in response to an external request from the
@@ -71,10 +70,9 @@ private data (`rdata` below) as summarized by the following typical example:
 
 ```julia
 # Method to handle a send request:
-function rfunc(rdata::R, srv::XPA.Server, params::String,
-               buf::Ptr{UInt8}, len::Csize_t)
+function rfunc(rdata::R, srv::XPA.Server, params::String, buf::XPA.ReceiveBuffer)
     println("receive: \$params")
-    arr = unsafe_wrap(Array, buf, len, own=false)
+    arr = unsafe_wrap(Array, pointer(buf), sizeof(buf), own=false)
     ...
     # FIXME: What happens if the array `arr` is returned?  We should make a
     #        copy?
@@ -85,17 +83,17 @@ end
 send = XPA.ReceiveCallback(rfunc, rdata)
 ```
 
-with `rdata` the client data (of type `R`) of the receive callback, `srv` the
-XPA server serving the request, `params` the parameter list of the
-[`XPA.set`](@ref) call, `buf` and `len` the address and size (in bytes) of the
-data to process.
+Here `rdata` is the client data (of type `R`) of the receive callback, `srv` is
+the XPA server serving the request, `params` is the parameter list of the
+[`XPA.set`](@ref) call and `buf` specifies the address and size of the data to
+process.
 
 The callback methods `sfunc` and/or `rfunc` should return [`XPA.SUCCESS`](@ref)
 if no error occurs, or [`XPA.FAILURE`](@ref) to signal an error.  The Julia XPA
 package takes care of maintaining a reference on the client data and callback
 methods.
 
-Also see: [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.setbuf!`](@ref),
+Also see: [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.setbuffer!`](@ref),
           [`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref).
 
 """
@@ -165,7 +163,7 @@ associated contextual data.
 Although keywords are available to tune the behavior of the server, not all
 cases are currently managed, so it is recommended to keep the default values.
 
-Also see: [`XPA.Server`](@ref), [`XPA.setbuf!`](@ref),
+Also see: [`XPA.Server`](@ref), [`XPA.setbuffer!`](@ref),
 [`XPA.ReceiveCallback`](@ref).
 
 """
@@ -212,13 +210,11 @@ function _send(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
     # SendCallback object.
     return _send(unsafe_pointer_to_objref(clientdata), srv,
                  (params == C_NULL ? "" : unsafe_string(params)),
-                 bufptr, lenptr)
+                 SendBuffer(bufptr, lenptr))
 end
 
-function _send(cb::SendCallback, srv::Server, params::String,
-               bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})
-    return cb.send(cb.data, srv, params, bufptr, lenptr)
-end
+_send(cb::SendCallback, srv::Server, params::String, buf::SendBuffer) =
+    cb.send(cb.data, srv, params, buf)
 
 # The receive callback is executed in response to an external request from the
 # `xpaset` program, the `XPASet()` routine, or `XPASetFd()` routine.
@@ -227,18 +223,17 @@ function _recv(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
     # Call actual callback providing the client data is the address of a known
     # ReceiveCallback object.
     return _recv(unsafe_pointer_to_objref(clientdata), Server(handle),
-                 (params == C_NULL ? "" : unsafe_string(params)), buf, len)
+                 (params == C_NULL ? "" : unsafe_string(params)),
+                 ReceiveBuffer(buf, len))
 end
 
 # If the receive callback mode has option `freebuf=false`, then `buf` must be
 # managed by the callback, by default `freebuf=true` and the buffer is
 # automatically released after callback completes.
-function _recv(cb::ReceiveCallback, srv::Server, params::String,
-               buf::Ptr{Byte}, len::Csize_t)
-    return cb.recv(cb.data, srv, params, buf, len)
-end
+_recv(cb::ReceiveCallback, srv::Server, params::String, buf::ReceiveBuffer) =
+    cb.recv(cb.data, srv, params, buf)
 
-# Addresses of callbacks cannot be precompiled so we set them at run time in
+# Addresses of callbacks cannot be precompiled so we set them at run-time in
 # the __init__() method of the module.
 const _SEND_REF = Ref{Ptr{Cvoid}}(0)
 const _RECV_REF = Ref{Ptr{Cvoid}}(0)
@@ -296,72 +291,71 @@ message(srv::Server, msg::AbstractString) =
 
 """
 ```julia
-XPA.setbuf!(bufptr, lenptr, data)
+XPA.setbuffer!(buf, data)
 ```
 
 or
 
 ```julia
-XPA.setbuf!(bufptr, lenptr, buf, len)
+XPA.setbuffer!(buf, ptr, len)
 ```
 
-set the values at addresses `bufptr` and `lenptr` to be the address and size of
-a dynamically allocated buffer storing the contents of `data` (or a copy of the
-`len` bytes at address `buf`).  This method is meant to be used in the *send*
-callback to store the result of an `XPA.get` request processed by an XPA server
+store at the addresses given by the send buffer `buf` the address and size of a
+dynamically allocated buffer storing the contents of `data` (or a copy of the
+`len` bytes at address `ptr`).  This method is meant to be used in the *send*
+callback to store the result of an [`XPA.get`](@ref) request processed by an
+XPA server
 
-We are always assuming that the answer to a `XPA.get` request is a dynamically
-allocated buffer which is deleted by `XPAHandler`.
+We are always assuming that the answer to a [`XPA.get`](@ref) request is a
+dynamically allocated buffer which is deleted by `XPAHandler`.
 
-See also: [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref), [`XPA.get`](@ref).
+See also [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref) and
+[`XPA.get`](@ref).
+
 """
-function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
-                 ptr::Ptr{Byte}, len::Integer)
+function setbuffer!(buf::SendBuffer, ptr::Ptr{Byte}, len::Integer)
     # FIXME: We are always assuming that the answer to a XPAGet request is a
     #        dynamically allocated buffer which is deleted by `XPAHandler`.  We
     #        should make sure of that.
 
     # This function is similar to `XPASetBuf` except that it verifies that no
     # prior buffer has been set.
-    (unsafe_load(bufptr) == NULL && unsafe_load(lenptr) == 0) ||
-        error("setbuf! can be called only once")
+    (unsafe_load(buf.bufptr) == NULL && unsafe_load(buf.lenptr) == 0) ||
+        error("setbuffer! can be called only once per request")
     if ptr != NULL
         len > 0 || error("invalid number of bytes ($len) for non-NULL pointer")
-        buf = _memcpy(_malloc(len), ptr, len)
-        unsafe_store!(bufptr, buf)
-        unsafe_store!(lenptr, len)
+        unsafe_store!(buf.bufptr, _memcpy(_malloc(len), ptr, len))
+        unsafe_store!(buf.lenptr, len)
     else
         len == 0 || error("invalid number of bytes ($len) for NULL pointer")
     end
     return nothing
 end
 
-setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, ::Nothing) =
-    setbuf!(bufptr, lenptr, NULL, 0)
+setbuffer!(buf::SendBuffer, ::Nothing) = setbuffer!(buf, NULL, 0)
 
-function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
-                 val::Union{Symbol,AbstractString})
-    return setbuf!(bufptr, lenptr, String(val))
+setbuffer!(buf::SendBuffer, val::Union{Symbol,AbstractString}) =
+    setbuffer!(buf, String(val))
+
+setbuffer!(buf::SendBuffer, str::String) =
+    setbuffer!(buf.bufptr, buf.lenptr,
+               Base.unsafe_convert(Ptr{Byte}, str), sizeof(str))
+
+function setbuffer!(buf::SendBuffer, arr::DenseArray{T,N}) where {T, N}
+    @assert isbitstype(T)
+    setbuffer!(buf.bufptr, buf.lenptr,
+               convert(Ptr{Byte}, pointer(arr)), sizeof(arr))
 end
 
-setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, str::String) =
-    setbuf!(bufptr, lenptr, Base.unsafe_convert(Ptr{Byte}, str), sizeof(str))
-
-function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t},
-                 arr::DenseArray{T,N}) where {T, N}
+function setbuffer!(buf::SendBuffer, val::T) where {T}
     @assert isbitstype(T)
-    setbuf!(bufptr, lenptr, convert(Ptr{Byte}, pointer(arr)), sizeof(arr))
-end
-
-function setbuf!(bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t}, val::T) where {T}
-    @assert isbitstype(T)
-    (unsafe_load(bufptr) == NULL && unsafe_load(lenptr) == 0) ||
-        error("setbuf! can be called only once")
+    (unsafe_load(buf.bufptr) == NULL && unsafe_load(buf.lenptr) == 0) ||
+        error("setbuffer! can be called only once")
     len = sizeof(T)
-    buf = _malloc(len)
-    unsafe_store!(convert(Ptr{T}, buf), val)
-    unsafe_store!(bufptr, buf)
-    unsafe_store!(lenptr, len)
+    ptr = _malloc(len)
+    unsafe_store!(convert(Ptr{T}, ptr), val)
+    unsafe_store!(buf.bufptr, ptr)
+    unsafe_store!(buf.lenptr, len)
     return nothing
 end
 
@@ -389,24 +383,24 @@ The following example implements a polling loop which has no noticeable impact
 on the consumption of CPU when no requests are emitted to the server:
 
 ```julia
-const running = Ref{Bool}(false)
+const __running = Ref{Bool}(false)
 
 function run()
-    global running
-    running[] = true
-    while running[]
+    global __running
+    __running[] = true
+    while __running[]
         XPA.poll(-1, 1)
     end
 end
 ```
 
-Here the global variable `running` is a reference to a boolean whose value
+Here the global variable `__running` is a reference to a boolean whose value
 indicates whether to continue to run the XPA server(s) created by the process.
 The idea is to pass the reference to the callbacks of the server (as their
 client data for instance) and let the callbacks stop the loop by setting the
 contents of the reference to `false`.
 
-Another possibility is to use `XPA.mainloop` (which to see).
+Another possibility is to use [`XPA.mainloop`](@ref) (which to see).
 
 To let Julia performs other tasks, the polling method may be repeatedly called
 by a Julia timer.  The following example does this.  Calling `resume` starts
