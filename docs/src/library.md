@@ -8,73 +8,85 @@ by the XPA package.  This information is also available from the REPL by typing
 ## XPA client methods and types
 
 ```@docs
-XPA.Client()
+XPA.Client
 ```
 ```@docs
-XPA.list()
+XPA.get
 ```
 ```@docs
-XPA.get()
+XPA.Reply
 ```
 ```@docs
-XPA.get_data()
+XPA.get_data
 ```
 ```@docs
-XPA.get_server()
+XPA.get_server
 ```
 ```@docs
-XPA.get_message()
+XPA.get_message
 ```
 ```@docs
-XPA.has_error()
+XPA.has_error
 ```
 ```@docs
-XPA.has_errors()
+XPA.has_errors
 ```
 ```@docs
-XPA.has_message()
+XPA.has_message
 ```
 ```@docs
-XPA.set()
+XPA.set
 ```
 ```@docs
-XPA.buffer()
+XPA.buffer
 ```
-
 
 ## XPA server methods and types
 
 ```@docs
-XPA.Server()
+XPA.Server
 ```
 ```@docs
-close(::XPA.Server)
+XPA.SendCallback
+```
+```@docs
+XPA.ReceiveCallback
 ```
 ```@docs
 error(::XPA.Server,::AbstractString)
 ```
 ```@docs
-XPA.setbuf!()
+XPA.setbuffer!
 ```
 ```@docs
-XPA.poll()
+XPA.poll
 ```
 ```@docs
-XPA.message()
+XPA.message
 ```
 ```@docs
-XPA.mainloop()
+XPA.mainloop
 ```
 
 
 ## Utilities
 
 ```@docs
-XPA.list()
+XPA.list
 ```
 ```@docs
-XPA.getconfig()
+XPA.AccessPoint
 ```
 ```@docs
-XPA.setconfig!()
+XPA.getconfig
+```
+```@docs
+XPA.setconfig!
+```
+
+
+## Constants
+```@docs
+XPA.SUCCESS
+XPA.FAILURE
 ```

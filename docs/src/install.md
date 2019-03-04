@@ -5,6 +5,8 @@ on your computer.  If this is not the case, they may be available for your
 operating system.  Otherwise, you'll have to build it and install it yourself.
 Depending on this condition, there are two possibilities described below.
 
+The source code of XPA.jl is available [here](https://github.com/emmt/XPA.jl).
+
 
 ## Easy installation
 
@@ -19,19 +21,7 @@ Then, to install XPA.jl package from Julia, just do:
 
 ```julia
 using Pkg
-Pkg.clone("https://github.com/emmt/XPA.jl")
-```
-
-Don't be feared with the warning message about using deprecated `Pkg.clone`
-instead of `Pkg.add`, as of Julia 1.0,
-`Pkg.add("https://github.com/emmt/XPA.jl")` does not work in spite of what said
-the Julia documentation...
-
-To upgrade the XPA.jl package:
-
-```julia
-Pkg.update("XPA")
-Pkg.build("XPA")
+Pkg.add("XPA")
 ```
 
 
@@ -40,9 +30,9 @@ Pkg.build("XPA")
 If XPA dynamic library and header files are not provided by your system, you
 may install it manually.  That's easy but make sure that you compile and
 install the shared library of XPA since this is the one that will be used by
-Julia.  You have to download the source archive at
-https://github.com/ericmandel/xpa/releases/latest, unpack it in some directory,
-build and install it.  For instance:
+Julia.  You have to download the source archive
+[here](https://github.com/ericmandel/xpa/releases/latest), unpack it in some
+directory, build and install it.  For instance:
 
 ```sh
 cd "$SRCDIR"
@@ -75,7 +65,7 @@ export XPA_LIBS="-L$PREFIX/lib -lxpa"
 ```
 
 It may also be the case that you want to use a specific XPA dynamic library
-even though your sustem provides one.  Then define the environment variable
+even though your system provides one.  Then define the environment variable
 `XPA_DEFS` as explained above and define the environment variable `XPA_DLL`
 with the full path to the dynamic library to use.  For instance:
 

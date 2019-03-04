@@ -1,15 +1,16 @@
-# Implementing an XPA server
+# Implementing a server
 
 ## Create an XPA server
 
-The simplest way to create a new XPA server is to do:
+To create a new XPA server, call the [`XPA.Server`](@ref) method:
 
 ```julia
 server = XPA.Server(class, name, help, send, recv)
 ```
 
 where `class`, `name` and `help` are strings while `send` and `recv` are
-callbacks created by:
+callbacks created by the [`XPA.SendCallback`](@ref) and
+[`XPA.ReceiveCallback`](@ref) methods:
 
 ```julia
 send = XPA.SendCallback(sendfunc, senddata)
@@ -30,12 +31,13 @@ end
 ```
 
 The callbacks must return an integer status (of type `Cint`): either
-`XPA.SUCCESS` or `XPA.ERROR`.  The methods `XPA.seterror()` and
-`XPA.setmessage()` can be used to specify a message accompanying the result.
+[`XPA.SUCCESS`](@ref) or [`XPA.FAILURE`](@ref).  The methods `XPA.seterror()`
+and `XPA.setmessage()` can be used to specify a message accompanying the
+result.
 
 
 ```julia
-XPA.setbuf!(...)
+XPA.setbuffer!(...)
 XPA.get_send_mode(xpa)
 XPA.get_recv_mode(xpa)
 XPA.get_name(xpa)
