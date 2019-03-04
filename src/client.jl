@@ -30,7 +30,8 @@ therefore saves the time it takes to connect to a server, which could be
 significant with slow connections or if there will be a large number of
 exchanges with a given access point.
 
-See also: [`XPA.set`](@ref), [`XPA.get`](@ref)
+See also [`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref) and
+[`XPA.find`](@ref).
 
 """
 function Client()
@@ -59,7 +60,7 @@ persistent XPA client connection; if omitted, a temporary client connection
 will be created.  The result is a vector of [`XPA.AccessPoint`](@ref)
 instances.
 
-Also see: [`XPA.Client`](@ref).
+See also [`XPA.Client`](@ref) and [`XPA.find`](@ref).
 
 """
 function list(xpa::Client = TEMPORARY)
@@ -88,6 +89,75 @@ function list(xpa::Client = TEMPORARY)
     end
     return lst
 end
+
+"""
+```julia
+XPA.find([xpa=XPA.TEMPORARY,] ident)
+```
+
+yields the address of the first XPA server matching `ident` or `nothing` if
+none is found.  If more than one match occurs, the first match is returned.
+
+Argument `ident` may be a regular expression or a string of the
+form `CLASS:NAME` where `CLASS` and `CLASS` are matched against the server
+class and name respectively (they may be `"*"` to match any).
+
+Keyword `user` may be used to specify another name than `ENV["user"]` for the
+owner of the server process.  Set `user=nothing` or `user="*"` to match any
+users.
+
+Keyword `throwerrors` may be set true (it is false by default) to automatically
+throw an exception if no match is found (instead of returning `nothing`).
+
+See also [`XPA.Client`](@ref) and [`XPA.list`](@ref).
+
+"""
+find(ident::Union{AbstractString,Regex}; kwds...)::Union{String,Nothing} =
+    find(TEMPORARY, ident; kwds...)
+
+function find(xpa::Client,
+              ident::AbstractString;
+              user::Union{AbstractString,Nothing} = ENV["USER"],
+              throwerrors::Bool = false)::Union{String,Nothing}
+    i = findfirst(isequal(':'), ident)
+    class = ident[1:i-1]
+    name = ident[i+1:end]
+    anyuser = (user === nothing || user == "*")
+    anyclass = (class == "*")
+    anyname = (name == "*")
+    lst = list(xpa)
+    for j in eachindex(lst)
+        if ((anyuser || lst[j].user == user) &&
+            (anyclass || lst[j].class == class) &&
+            (anyname || lst[j].name == name))
+            return lst[j].addr
+        end
+    end
+    throwerrors && error(_noserversmatch(ident))
+    return nothing
+end
+
+function find(xpa::Client,
+              ident::Regex;
+              user::Union{AbstractString,Nothing} = ENV["USER"],
+              throwerrors::Bool = false)::Union{String,Nothing}
+    anyuser = (user === nothing || user == "*")
+    lst = list(xpa)
+    for j in eachindex(lst)
+        if ((anyuser || lst[j].user == user) &&
+            occursin(ident, lst[j].class*":"*lst[j].name))
+            return lst[j].addr
+        end
+    end
+    throwerrors && error(_noserversmatch(ident))
+    return nothing
+end
+
+@noinline _noserversmatch(ident::AbstractString) =
+    "no XPA servers match pattern \"$(ident)\""
+
+@noinline _noserversmatch(ident::Regex) =
+    "no XPA servers match regular expression \"$(ident.pattern)\""
 
 """
 ```julia

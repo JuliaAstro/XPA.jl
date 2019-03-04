@@ -50,6 +50,19 @@ template `DS9:*`, its address is `7f000001:44805`. Either of these strings can
 be used to identify this server but only the address is unique.  Indeed there
 may be more than one server with class `DS9` and name `ds9`.
 
+In order to get the address of a more specific server, you max call
+[`XPA.find(ident)`](@ref) where `ident` is a regular expression or a string
+template to match against the `CLASS:NAME` identifier of the server.  For
+instance:
+
+```julia
+julia> addr = XPA.find(r"^DS9:")
+"7f000001:44805"
+```
+
+Keywords `user` or `throwerrors` can be specified to match the name of the
+owner of the server or to throw an exception if no match is found.
+
 To query the version number of SAOImage-DS9, we can do:
 
 ```julia
@@ -59,7 +72,7 @@ rep = XPA.get("DS9:*", "version");
 For best performances, we can do the following:
 
 ```julia
-ds9 = (XPA.Client(), "7f000001:44805");
+ds9 = (XPA.Client(), XPA.find(r"^DS9:"; throwerrors=true));
 rep = XPA.get(ds9..., "version");
 ```
 

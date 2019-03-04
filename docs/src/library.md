@@ -84,6 +84,9 @@ XPA.list
 XPA.AccessPoint
 ```
 ```@docs
+XPA.find
+```
+```@docs
 XPA.getconfig
 ```
 ```@docs
