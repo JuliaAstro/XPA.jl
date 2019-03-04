@@ -36,6 +36,10 @@ and server ([`XPA.Server`](@ref)) connections in the XPA Messaging System.
 """
 abstract type Handle end
 
+# All concrete types derived from `Handle` have a `ptr` field which is NULL if
+# handle has been closed (or not yet open).
+Base.isopen(xpa::Handle) = xpa.ptr != C_NULL
+
 """
 
 An instance of the mutable structure `XPA.Client` represents a client

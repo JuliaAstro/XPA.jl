@@ -35,6 +35,9 @@ XPA.has_errors
 XPA.has_message
 ```
 ```@docs
+XPA.verify
+```
+```@docs
 XPA.set
 ```
 ```@docs

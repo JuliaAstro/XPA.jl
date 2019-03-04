@@ -193,14 +193,7 @@ function _get(xpa::Client, apt::AbstractString, params::AbstractString,
                     address + offset, address + 2*offset, nmax)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPAGet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
-    if check
-        for i in 1:replies
-            if has_error(rep, i)
-                # FIXME: strip "XPA$ERROR" part
-                error(get_message(rep, i))
-            end
-        end
-    end
+    check && verify(rep; throwerrors=true)
     return rep
 end
 
@@ -313,7 +306,8 @@ See also [`XPA.get`](@ref), [`XPA.has_message`](@ref),
 has_error(rep::Reply, i::Integer=1) =
     _startswith(_get_msg(rep, i), _XPA_ERROR)
 
-const _XPA_ERROR = Tuple(map(Byte, collect("XPA\$ERROR ")))
+const _XPA_ERROR_PREFIX = "XPA\$ERROR "
+const _XPA_ERROR = Tuple(map(Byte, collect(_XPA_ERROR_PREFIX)))
 
 """
 ```julia
@@ -347,7 +341,8 @@ See also [`XPA.get`](@ref), [`XPA.has_message`](@ref).
 has_message(rep::Reply, i::Integer=1) =
     _startswith(_get_msg(rep, i), _XPA_MESSAGE)
 
-const _XPA_MESSAGE = Tuple(map(Byte, collect("XPA\$MESSAGE ")))
+const _XPA_MESSAGE_PREFIX = "XPA\$MESSAGE "
+const _XPA_MESSAGE = Tuple(map(Byte, collect(_XPA_MESSAGE_PREFIX)))
 
 function _startswith(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
     if ptr == NULL
@@ -355,6 +350,42 @@ function _startswith(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
     end
     for i in 1:N
         if unsafe_load(ptr, i) != tup[i]
+            return false
+        end
+    end
+    return true
+end
+
+"""
+
+```julia
+verify(rep [, i]; throwerrors::Bool=false) -> boolean
+```
+
+verifies whether answer(s) in the result `rep` from an [`XPA.get`](@ref) or
+[`XPA.set`](@ref) request has no errors.  If index `i` is specified only that
+specific answer is considered; otherwise, all answers are verified.  If keyword
+`throwerrors` is true, an exception is thrown for the first error found if any.
+
+"""
+function verify(rep::Reply; kwds...)
+    for i in 1:length(rep)
+        verify(rep, i; kwds...) || return false
+    end
+    return true
+end
+
+function verify(rep::Reply, i::Integer; throwerrors::Bool=false)
+    if has_error(rep, i)
+        if throwerrors
+            # Strip error message prefix (which we know that it is present).
+            msg = get_message(rep, i)
+            j = length(_XPA_ERROR_PREFIX) + 1
+            while j ≤ length(msg) && isspace(msg[j])
+                j += 1
+            end
+            error(msg[j:end])
+        else
             return false
         end
     end
@@ -559,13 +590,7 @@ function _set(xpa::Client, apt::AbstractString, params::AbstractString,
               address + offset, address + 2*offset, nmax)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPASet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
-    if check
-        for i in 1:replies
-            if has_error(rep, i)
-                error(get_message(rep, i))
-            end
-        end
-    end
+    check && verify(rep; throwerrors=true)
     return rep
 end
 
