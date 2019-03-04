@@ -4,7 +4,7 @@ recv = XPA.ReceiveCallback(recvfunc, recvdata)</code></pre><p>where <code>sendfu
                   buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})
     ...
     return XPA.SUCCESS
-end</code></pre><p>The callbacks must return an integer status (of type <code>Cint</code>): either <a href="../library/#XPA.SUCCESS"><code>XPA.SUCCESS</code></a> or <a href="../library/#XPA.FAILURE"><code>XPA.FAILURE</code></a>.  The methods <code>XPA.seterror()</code> and <code>XPA.setmessage()</code> can be used to specify a message accompanying the result.</p><pre><code class="language-julia">XPA.setbuffer!(...)
+end</code></pre><p>The callbacks must return an integer status (of type <code>Cint</code>): either <a href="../library/#XPA.SUCCESS"><code>XPA.SUCCESS</code></a> or <a href="../library/#XPA.FAILURE"><code>XPA.FAILURE</code></a>.  The methods <code>XPA.seterror()</code> and <code>XPA.setmessage()</code> can be used to specify a message accompanying the result.</p><pre><code class="language-julia">XPA.store!(...)
 XPA.get_send_mode(xpa)
 XPA.get_recv_mode(xpa)
 XPA.get_name(xpa)

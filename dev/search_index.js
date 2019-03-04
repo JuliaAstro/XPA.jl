@@ -117,7 +117,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Client operations",
     "title": "Available methods",
     "category": "section",
-    "text": "To query something from one or more XPA servers, call XPA.get method:XPA.get([xpa,] apt, args...) -> repwhich uses the client connection xpa to retrieve data from one or more XPA access points identified by apt as a result of the command build from arguments args....  Argument xpa is optional, if it is not specified, a (slow) temporary connection is established.  The XPA access point apt is a string which can be a template name, a host:port string or the name of a Unix socket file.  The utility XPA.list() can be called to list available servers.  The arguments args... are automatically converted into a single command string where the arguments are separated by a single space.For instance:julia> XPA.list()\n1-element Array{XPA.AccessPoint,1}:\n XPA.AccessPoint(\"DS9\", \"ds9\", \"7f000001:44805\", \"eric\", 0x0000000000000003)indicates that a single XPA server is available and that it is SAOImage-DS9, an astronomical tool to display images.  The server name is DS9:ds9 which can be matched by the template DS9:*, its address is 7f000001:44805. Either of these strings can be used to identify this server but only the address is unique.  Indeed there may be more than one server with class DS9 and name ds9.To query the version number of SAOImage-DS9, we can do:rep = XPA.get(\"DS9:*\", \"version\");For best performances, we can do the following:ds9 = (XPA.Client(), \"7f000001:44805\");\nrep = XPA.get(ds9..., \"version\");and use ds9... in all calls to XPA.get or XPA.set (described later) to use a fast client connection to the uniquely identified SAOImage-DS9 server.The answer, say rep, to the XPA.get request is an instance of XPA.Reply.  Various methods are available to retrieve information or data from rep.  For instance, length(rep) yields the number of answers which may be zero if no servers have answered the request (the maximum number of answers can be specified via the nmax keyword of XPA.get; by default, nmax=1 to retrieve at most one answer).There may be errors or messages associated with the answers.  To check whether the i-th answer has an associated error message, call the XPA.has_error method:XPA.has_error(rep, i=1) -> booleannote: Note\nHere and in all methods related to a specific answer in a reply to XPA.get or XPA.set requests, the answer index i can be any integer value.  If it is not such that 1 ≤ i ≤ length(rep), it is assumed that there is no corresponding answer and an empty (or false) result is returned.  By default, the first answer is always assumed (as if i=1).To check whether there are any errors, call the XPA.has_errors method:XPA.has_errors(rep) -> booleanTo avoid checking for errors for every answer to all requests, the XPA.get method has a throwerrors keyword that can be set true in order to automatically throw an exception if there are any errors in the answers.The check whether the i-th answer has an associated message, call the XPA.has_message method:XPA.has_message(rep, i=1) -> booleanTo retrieve the message (perhaps an error message), call the XPA.get_message method:XPA.get_message(rep, i=1) -> stringwhich yields a string, possibly empty if there are no associated message with the i-th answer in rep or if i is out of range.To retrieve the identity of the server which answered the request, call the XPA.get_server method:XPA.get_server(rep, i=1) -> stringUsually the most interesting part of a particular answer is its data part which can be extracted with the XPA.get_data method.  The general syntax to retrieve the data associated with the i-th answer in rep is:XPA.get_data([T, [dims,]], rep, i=1; preserve=false) -> datawhere optional arguments T (a type) and dims (a list of dimensions) may be used to specify how to interpret the data.  If they are not specified, a vector of bytes (Vector{UInt8}) is returned.note: Note\nFor efficiency reason, copying the associated data is avoided if possible. This means that a call to XPA.get_data can steal the data and subsequent calls will behave as if the data part of the answer is empty. To avoid this (and force copying the data), use keyword preserve=true in calls to XPA.get_data.  Data are always preserved when a String is extracted from the associated data.Assuming rep is the result of some XPA.get or XPA.set request, the following lines of pseudo-code illustrate the roles of the optional T and dims arguments:XPA.get_data(rep, i=1; preserve=false) -> buf::Vector{UInt8}\nXPA.get_data(String, rep, i=1; preserve=false) -> str::String\nXPA.get_data(Vector{S}, [len,] rep, i=1; preserve=false) -> vec::Vector{S}\nXPA.get_data(Array{S}, (dim1, ..., dimN), rep, i=1; preserve=false) -> arr::Array{S,N}\nXPA.get_data(Array{S,N}, (dim1, ..., dimN), rep, i=1; preserve=false) -> arr::Array{S,N}here buf is a vector of bytes, str is a string, vec is a vector of len elements of type S (if len is unspecified, the length of the vector is the maximum possible given the actual size of the associated data) and arr is an N-dimensional array whose element type is S and dimensions dim1, ..., dimN.If you are only interested in the data associated to a single answer, you may directly specify arguments T and dims in the XPA.get call:XPA.get(String, [xpa,] apt, args...) -> str::String\nXPA.get(Vector{S}, [len,] [xpa,] apt, args...) -> vec::Vector{S}\nXPA.get(Array{S}, (dim1, ..., dimN), [xpa,] apt, args...) -> arr::Array{S,N}\nXPA.get_data(Array{S,N}, (dim1, ..., dimN), [xpa,] apt, args...) -> arr::Array{S,N}In that case, exactly one answer and no errors are expected from the request (as if nmax=1 and throwerrors=true were specified)."
+    "text": "To query something from one or more XPA servers, call XPA.get method:XPA.get([xpa,] apt, args...) -> repwhich uses the client connection xpa to retrieve data from one or more XPA access points identified by apt as a result of the command build from arguments args....  Argument xpa is optional, if it is not specified, a (slow) temporary connection is established.  The XPA access point apt is a string which can be a template name, a host:port string or the name of a Unix socket file.  The utility XPA.list() can be called to list available servers.  The arguments args... are automatically converted into a single command string where the arguments are separated by a single space.For instance:julia> XPA.list()\n1-element Array{XPA.AccessPoint,1}:\n XPA.AccessPoint(\"DS9\", \"ds9\", \"7f000001:44805\", \"eric\", 0x0000000000000003)indicates that a single XPA server is available and that it is SAOImage-DS9, an astronomical tool to display images.  The server name is DS9:ds9 which can be matched by the template DS9:*, its address is 7f000001:44805. Either of these strings can be used to identify this server but only the address is unique.  Indeed there may be more than one server with class DS9 and name ds9.In order to get the address of a more specific server, you max call XPA.find(ident) where ident is a regular expression or a string template to match against the CLASS:NAME identifier of the server.  For instance:julia> addr = XPA.find(r\"^DS9:\")\n\"7f000001:44805\"Keywords user or throwerrors can be specified to match the name of the owner of the server or to throw an exception if no match is found.To query the version number of SAOImage-DS9, we can do:rep = XPA.get(\"DS9:*\", \"version\");For best performances, we can do the following:ds9 = (XPA.Client(), XPA.find(r\"^DS9:\"; throwerrors=true));\nrep = XPA.get(ds9..., \"version\");and use ds9... in all calls to XPA.get or XPA.set (described later) to use a fast client connection to the uniquely identified SAOImage-DS9 server.The answer, say rep, to the XPA.get request is an instance of XPA.Reply.  Various methods are available to retrieve information or data from rep.  For instance, length(rep) yields the number of answers which may be zero if no servers have answered the request (the maximum number of answers can be specified via the nmax keyword of XPA.get; by default, nmax=1 to retrieve at most one answer).There may be errors or messages associated with the answers.  To check whether the i-th answer has an associated error message, call the XPA.has_error method:XPA.has_error(rep, i=1) -> booleannote: Note\nHere and in all methods related to a specific answer in a reply to XPA.get or XPA.set requests, the answer index i can be any integer value.  If it is not such that 1 ≤ i ≤ length(rep), it is assumed that there is no corresponding answer and an empty (or false) result is returned.  By default, the first answer is always assumed (as if i=1).To check whether there are any errors, call the XPA.has_errors method:XPA.has_errors(rep) -> booleanTo avoid checking for errors for every answer to all requests, the XPA.get method has a throwerrors keyword that can be set true in order to automatically throw an exception if there are any errors in the answers.The check whether the i-th answer has an associated message, call the XPA.has_message method:XPA.has_message(rep, i=1) -> booleanTo retrieve the message (perhaps an error message), call the XPA.get_message method:XPA.get_message(rep, i=1) -> stringwhich yields a string, possibly empty if there are no associated message with the i-th answer in rep or if i is out of range.To retrieve the identity of the server which answered the request, call the XPA.get_server method:XPA.get_server(rep, i=1) -> stringUsually the most interesting part of a particular answer is its data part which can be extracted with the XPA.get_data method.  The general syntax to retrieve the data associated with the i-th answer in rep is:XPA.get_data([T, [dims,]], rep, i=1; preserve=false) -> datawhere optional arguments T (a type) and dims (a list of dimensions) may be used to specify how to interpret the data.  If they are not specified, a vector of bytes (Vector{UInt8}) is returned.note: Note\nFor efficiency reason, copying the associated data is avoided if possible. This means that a call to XPA.get_data can steal the data and subsequent calls will behave as if the data part of the answer is empty. To avoid this (and force copying the data), use keyword preserve=true in calls to XPA.get_data.  Data are always preserved when a String is extracted from the associated data.Assuming rep is the result of some XPA.get or XPA.set request, the following lines of pseudo-code illustrate the roles of the optional T and dims arguments:XPA.get_data(rep, i=1; preserve=false) -> buf::Vector{UInt8}\nXPA.get_data(String, rep, i=1; preserve=false) -> str::String\nXPA.get_data(Vector{S}, [len,] rep, i=1; preserve=false) -> vec::Vector{S}\nXPA.get_data(Array{S}, (dim1, ..., dimN), rep, i=1; preserve=false) -> arr::Array{S,N}\nXPA.get_data(Array{S,N}, (dim1, ..., dimN), rep, i=1; preserve=false) -> arr::Array{S,N}here buf is a vector of bytes, str is a string, vec is a vector of len elements of type S (if len is unspecified, the length of the vector is the maximum possible given the actual size of the associated data) and arr is an N-dimensional array whose element type is S and dimensions dim1, ..., dimN.If you are only interested in the data associated to a single answer, you may directly specify arguments T and dims in the XPA.get call:XPA.get(String, [xpa,] apt, args...) -> str::String\nXPA.get(Vector{S}, [len,] [xpa,] apt, args...) -> vec::Vector{S}\nXPA.get(Array{S}, (dim1, ..., dimN), [xpa,] apt, args...) -> arr::Array{S,N}\nXPA.get_data(Array{S,N}, (dim1, ..., dimN), [xpa,] apt, args...) -> arr::Array{S,N}In that case, exactly one answer and no errors are expected from the request (as if nmax=1 and throwerrors=true were specified)."
 },
 
 {
@@ -165,7 +165,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Implementing a server",
     "title": "Create an XPA server",
     "category": "section",
-    "text": "To create a new XPA server, call the XPA.Server method:server = XPA.Server(class, name, help, send, recv)where class, name and help are strings while send and recv are callbacks created by the XPA.SendCallback and XPA.ReceiveCallback methods:send = XPA.SendCallback(sendfunc, senddata)\nrecv = XPA.ReceiveCallback(recvfunc, recvdata)where sendfunc and recvfunc are the Julia methods to call while senddata and recvdata are any data needed by the callback other than what is specified by the client request (if omitted, nothing is assumed).  The callbacks have the following forms:function sendfunc(senddata, xpa::Server, params::String,\n                  buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})\n    ...\n    return XPA.SUCCESS\nendThe callbacks must return an integer status (of type Cint): either XPA.SUCCESS or XPA.FAILURE.  The methods XPA.seterror() and XPA.setmessage() can be used to specify a message accompanying the result.XPA.setbuffer!(...)\nXPA.get_send_mode(xpa)\nXPA.get_recv_mode(xpa)\nXPA.get_name(xpa)\nXPA.get_class(xpa)\nXPA.get_method(xpa)\nXPA.get_sendian(xpa)\nXPA.get_cmdfd(xpa)\nXPA.get_datafd(xpa)\nXPA.get_ack(xpa)\nXPA.get_status(xpa)\nXPA.get_cendian(xpa)"
+    "text": "To create a new XPA server, call the XPA.Server method:server = XPA.Server(class, name, help, send, recv)where class, name and help are strings while send and recv are callbacks created by the XPA.SendCallback and XPA.ReceiveCallback methods:send = XPA.SendCallback(sendfunc, senddata)\nrecv = XPA.ReceiveCallback(recvfunc, recvdata)where sendfunc and recvfunc are the Julia methods to call while senddata and recvdata are any data needed by the callback other than what is specified by the client request (if omitted, nothing is assumed).  The callbacks have the following forms:function sendfunc(senddata, xpa::Server, params::String,\n                  buf::Ptr{Ptr{UInt8}}, len::Ptr{Csize_t})\n    ...\n    return XPA.SUCCESS\nendThe callbacks must return an integer status (of type Cint): either XPA.SUCCESS or XPA.FAILURE.  The methods XPA.seterror() and XPA.setmessage() can be used to specify a message accompanying the result.XPA.store!(...)\nXPA.get_send_mode(xpa)\nXPA.get_recv_mode(xpa)\nXPA.get_name(xpa)\nXPA.get_class(xpa)\nXPA.get_method(xpa)\nXPA.get_sendian(xpa)\nXPA.get_cmdfd(xpa)\nXPA.get_datafd(xpa)\nXPA.get_ack(xpa)\nXPA.get_status(xpa)\nXPA.get_cendian(xpa)"
 },
 
 {
@@ -329,6 +329,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "library/#XPA.store!",
+    "page": "Reference",
+    "title": "XPA.store!",
+    "category": "function",
+    "text": "XPA.store!(buf, data)\n\nor\n\nXPA.store!(buf, ptr, len)\n\nstore into the send buffer buf a dynamically allocated copy of the contents of data or of the len bytes at address ptr.\n\nwarning: Warning\nThis method is meant to be used in a send callback to store the result of an XPA.get request processed by an XPA server.  Memory leaks are expected if used in another context.\n\nSee also XPA.Server, XPA.SendCallback and XPA.get.\n\n\n\n\n\n"
+},
+
+{
     "location": "library/#XPA.ReceiveCallback",
     "page": "Reference",
     "title": "XPA.ReceiveCallback",
@@ -337,19 +345,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "library/#XPA.peek",
+    "page": "Reference",
+    "title": "XPA.peek",
+    "category": "function",
+    "text": "XPA.peek(T, buf, i=1) -> val\n\nyields the i-th binary value of type T stored into receive buffer buf. Bounds checking is performed unless @inbounds is active.\n\nAnother usage of the XPA.peek method is to convert the contents of the receive buffer into an array:\n\nXPA.peek(Vector{T}, [len,] buf) -> vec\nXPA.peek(Array{T[,N]}, (dim1, ..., dimN), buf) -> arr\n\nyield a Julia vector vec or array arr whose elements are of type T and dimensions are len or (dim1, ..., dimN).  For a vector, if the length is unspecified, the vector of maximal length that fits in the buffer is returned.\n\nIf keyword temporary is true, then unsafe_wrap is called (with option own=false) to wrap the buffer contents into a Julia array whose life-time cannot exceeds that of the callback.  Otherwise, a copy of the buffer contents is returned.\n\nSee also XPA.ReceiveCallback.\n\n\n\n\n\n"
+},
+
+{
     "location": "library/#Base.error-Tuple{XPA.Server,AbstractString}",
     "page": "Reference",
     "title": "Base.error",
     "category": "method",
     "text": "error(srv, msg) -> XPA.FAILURE\n\ncommunicates error message msg to the client when serving a request by XPA server srv.  This method shall only be used by the send/receive callbacks of an XPA server.\n\nAlso see: XPA.Server, XPA.message,           XPA.SendCallback, XPA.ReceiveCallback.\n\n\n\n\n\n"
-},
-
-{
-    "location": "library/#XPA.setbuffer!",
-    "page": "Reference",
-    "title": "XPA.setbuffer!",
-    "category": "function",
-    "text": "XPA.setbuffer!(buf, data)\n\nor\n\nXPA.setbuffer!(buf, ptr, len)\n\nstore at the addresses given by the send buffer buf the address and size of a dynamically allocated buffer storing the contents of data (or a copy of the len bytes at address ptr).  This method is meant to be used in the send callback to store the result of an XPA.get request processed by an XPA server\n\nWe are always assuming that the answer to a XPA.get request is a dynamically allocated buffer which is deleted by XPAHandler.\n\nSee also XPA.Server, XPA.SendCallback and XPA.get.\n\n\n\n\n\n"
 },
 
 {
@@ -381,7 +389,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "XPA server methods and types",
     "category": "section",
-    "text": "XPA.ServerXPA.SendCallbackXPA.ReceiveCallbackerror(::XPA.Server,::AbstractString)XPA.setbuffer!XPA.pollXPA.messageXPA.mainloop"
+    "text": "XPA.ServerXPA.SendCallbackXPA.store!XPA.ReceiveCallbackXPA.peekerror(::XPA.Server,::AbstractString)XPA.pollXPA.messageXPA.mainloop"
 },
 
 {
@@ -389,7 +397,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "XPA.list",
     "category": "function",
-    "text": "XPA.list(xpa=XPA.TEMPORARY)\n\nyields a list of available XPA access points.  Optional argument xpa is a persistent XPA client connection; if omitted, a temporary client connection will be created.  The result is a vector of XPA.AccessPoint instances.\n\nAlso see: XPA.Client.\n\n\n\n\n\n"
+    "text": "XPA.list(xpa=XPA.TEMPORARY)\n\nyields a list of available XPA access points.  Optional argument xpa is a persistent XPA client connection; if omitted, a temporary client connection will be created.  The result is a vector of XPA.AccessPoint instances.\n\nSee also XPA.Client and XPA.find.\n\n\n\n\n\n"
 },
 
 {
@@ -398,6 +406,14 @@ var documenterSearchIndex = {"docs": [
     "title": "XPA.AccessPoint",
     "category": "type",
     "text": "An instance of the XPA.AccessPoint structure represents an available XPA server.  A vector of such instances is returned by the XPA.list utility.\n\n\n\n\n\n"
+},
+
+{
+    "location": "library/#XPA.find",
+    "page": "Reference",
+    "title": "XPA.find",
+    "category": "function",
+    "text": "XPA.find([xpa=XPA.TEMPORARY,] ident)\n\nyields the address of the first XPA server matching ident or nothing if none is found.  If more than one match occurs, the first match is returned.\n\nArgument ident may be a regular expression or a string of the form CLASS:NAME where CLASS and CLASS are matched against the server class and name respectively (they may be \"*\" to match any).\n\nKeyword user may be used to specify another name than ENV[\"user\"] for the owner of the server process.  Set user=nothing or user=\"*\" to match any users.\n\nKeyword throwerrors may be set true (it is false by default) to automatically throw an exception if no match is found (instead of returning nothing).\n\nSee also XPA.Client and XPA.list.\n\n\n\n\n\n"
 },
 
 {
@@ -421,7 +437,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Utilities",
     "category": "section",
-    "text": "XPA.listXPA.AccessPointXPA.getconfigXPA.setconfig!"
+    "text": "XPA.listXPA.AccessPointXPA.findXPA.getconfigXPA.setconfig!"
 },
 
 {
