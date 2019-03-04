@@ -41,11 +41,9 @@ function Client()
     return finalizer(close, Client(ptr))
 end
 
-Base.isopen(xpa::Handle) = xpa.ptr != C_NULL
-
 function Base.close(xpa::Client)
     if (ptr = xpa.ptr) != C_NULL
-        xpa.ptr = C_NULL
+        xpa.ptr = C_NULL # avoid closing more than once!
         ccall((:XPAClose, libxpa), Cvoid, (Ptr{Cvoid},), ptr)
     end
     return nothing
@@ -93,13 +91,13 @@ end
 
 """
 ```julia
-XPA.get([T, [dims,]] [xpa,] apt, params...)
+XPA.get([T, [dims,]] [xpa,] apt, args...)
 ```
 
 retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
-parameters `params` (automatically converted into a single string where the
-parameters are separated by a single space).  Optional argument `xpa` specifies
+arguments `args...` (automatically converted into a single string where the
+arguments are separated by a single space).  Optional argument `xpa` specifies
 an XPA handle (created by [`XPA.Client`](@ref)) for faster connections.  The
 returned value depends on the optional arguments `T` and `dims`.
 
@@ -132,17 +130,24 @@ list of dimensions:
 See also: [`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref).
 
 """
-function get(xpa::Client, apt::AbstractString, params::AbstractString...;
-             # FIXME: params can have values not just strings, the only
-             #        constraint could be to start with a string.
+function get(xpa::Client,
+             apt::AbstractString,
+             cmd::AbstractString;
              mode::AbstractString = "",
              nmax::Integer = 1,
              check::Bool = false)
-    return _get(xpa, apt, _join(params), mode, _nmax(nmax), check)
+    return _get(xpa, apt, cmd, mode, _nmax(nmax), check)
 end
 
-get(args::AbstractString...; kwds...) =
-    get(TEMPORARY, args...; kwds...)
+function get(xpa::Client,
+             apt::AbstractString,
+             args::Union{AbstractString,Real}...;
+             kwds...)
+    return get(xpa, apt, _join(args); kwds...)
+end
+
+get(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
+    get(TEMPORARY, apt, _join(args); kwds...)
 
 _get1(args...; kwds...) = get(args...; nmax = 1, check = true, kwds...)
 
@@ -191,6 +196,7 @@ function _get(xpa::Client, apt::AbstractString, params::AbstractString,
     if check
         for i in 1:replies
             if has_error(rep, i)
+                # FIXME: strip "XPA$ERROR" part
                 error(get_message(rep, i))
             end
         end
@@ -213,20 +219,20 @@ end
 
 # i-th server name is at index i + nmax.
 _get_srv(rep::Reply, i::Integer) = _get_srv(rep, Int(i))
-_get_srv(rep::Reply, i::Int) :: Ptr{UInt8} =
+_get_srv(rep::Reply, i::Int) :: Ptr{Byte} =
     (1 ≤ i ≤ length(rep) ? rep.buffers[i + _nmax(rep)] : NULL)
 
 # i-th message is at index i + 2*nmax.
 _get_msg(rep::Reply, i::Integer) = _get_msg(rep, Int(i))
-_get_msg(rep::Reply, i::Int) :: Ptr{UInt8} =
+_get_msg(rep::Reply, i::Int) :: Ptr{Byte} =
     (1 ≤ i ≤ length(rep) ? rep.buffers[i + _nmax(rep)*2] : NULL)
 
 # i-th data buffer is at index i.
 _get_buf(rep::Reply, i::Integer, preserve::Bool) =
     _get_buf(rep, Int(i), preserve)
 
-function _get_buf(rep::Reply, i::Int, preserve::Bool) :: Tuple{Ptr{UInt8},Int}
-    local ptr::Ptr{UInt8}, len::Int
+function _get_buf(rep::Reply, i::Int, preserve::Bool) :: Tuple{Ptr{Byte},Int}
+    local ptr::Ptr{Byte}, len::Int
     if 1 ≤ i ≤ length(rep)
         ptr, len = rep.buffers[i], rep.lengths[i]
         (ptr == NULL ? len == 0 : len ≥ 0) || error("invalid buffer length")
@@ -242,14 +248,15 @@ end
 
 """
 
-Private method `_join(tup)` joins a tuple of string into a single string.
-It is implemented so as to be faster than `join(tup, " ")` when `tup` has
-less than 2 arguments.  It is intended to build XPA command string from
+Private method `_join(tup)` joins a tuple of strings or reals into a single
+string.  It is implemented so as to be faster than `join(tup, " ")` when `tup`
+has less than 2 arguments.  It is intended to build XPA command string from
 arguments.
 
 """
 _join(args::TupleOf{Union{AbstractString,Real}}) = join(args, " ")
-_join(args::Tuple{Union{AbstractString,Real}}) = args[1]
+_join(args::Tuple{AbstractString}) = args[1]
+_join(args::Tuple{Real}) = string(args[1])
 _join(::Tuple{}) = ""
 
 """
@@ -490,12 +497,12 @@ _string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 
 """
 ```julia
-XPA.set([xpa,] apt, params...; data=nothing) -> rep
+XPA.set([xpa,] apt, args...; data=nothing) -> rep
 ```
 
 sends `data` to one or more XPA access points identified by `apt` with
-parameters `params` (automatically converted into a single string where the
-parameters are separated by a single space).  The result is an instance of
+arguments `args...` (automatically converted into a single string where the
+arguments are separated by a single space).  The result is an instance of
 [`XPA.Reply`](@ref).  Optional argument `xpa` specifies an XPA handle (created
 by [`XPA.Client`](@ref)) for faster connections.
 
@@ -517,16 +524,25 @@ The following keywords are available:
 See also: [`XPA.Client`](@ref), [`XPA.get`](@ref).
 
 """
-function set(xpa::Client, apt::AbstractString, params::AbstractString...;
+function set(xpa::Client,
+             apt::AbstractString,
+             cmd::AbstractString;
              data = nothing,
              mode::AbstractString = "",
              nmax::Integer = 1,
              check::Bool = false)
-    return _set(xpa, apt, _join(params), mode, buffer(data), _nmax(nmax), check)
+    return _set(xpa, apt, cmd, mode, buffer(data), _nmax(nmax), check)
 end
 
-set(args::AbstractString...; kwds...) =
-    set(TEMPORARY, args...; kwds...)
+function set(xpa::Client,
+             apt::AbstractString,
+             args::Union{AbstractString,Real}...;
+             kwds...)
+    return _set(xpa, apt, _join(args); kwds...)
+end
+
+set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
+    set(TEMPORARY, apt, _join(args); kwds...)
 
 function _set(xpa::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, data::Union{NullBuffer,DenseArray},
