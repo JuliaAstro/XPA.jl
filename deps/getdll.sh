@@ -16,7 +16,7 @@ case `uname` in
         dll=$(ldd "$EXE" | sed -n "$script")
         ;;
     Darwin)
-        script='/lib'$LIB'\.dylib/{s/^[ \t]*//;s/[ \t]*([^)]*)[ \t]*$//;p}'
+        script='/lib'$LIB'\.dylib/{s/^[ \t]*//;s/[ \t]*([^)]*)[ \t]*$//;p;}'
         dll=$(otool -L "$EXE" | sed -n "$script")
         ;;
     *)
