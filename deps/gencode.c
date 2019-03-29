@@ -146,7 +146,11 @@ int main(int argc, char* argv[])
   fprintf(output, "\n");
   fprintf(output, "# Path to the XPA dynamic library.\n");
 #ifdef XPA_DLL
-  fprintf(output, "const libxpa = \"%s\"\n", XPA_DLL);
+  if (XPA_DLL[0] == '"') {
+    fprintf(output, "const libxpa = %s\n", XPA_DLL);
+  } else {
+    fprintf(output, "const libxpa = \"%s\"\n", XPA_DLL);
+  }
 #endif /* XPA_DLL */
 
   return 0;
