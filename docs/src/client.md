@@ -31,11 +31,11 @@ access points identified by `apt` as a result of the command build from
 arguments `args...`.  Argument `xpa` is optional, if it is not specified, a
 (slow) temporary connection is established.  The XPA access point `apt` is a
 string which can be a template name, a `host:port` string or the name of a Unix
-socket file.  The utility [`XPA.list()`](@ref) can be called to list available
-servers.  The arguments `args...` are automatically converted into a single
-command string where the arguments are separated by a single space.
+socket file.
 
-For instance:
+The utility [`XPA.list()`](@ref) can be called to list available servers.  The
+arguments `args...` are automatically converted into a single command string
+where the arguments are separated by a single space.  For instance:
 
 ```julia
 julia> XPA.list()
@@ -50,18 +50,36 @@ template `DS9:*`, its address is `7f000001:44805`. Either of these strings can
 be used to identify this server but only the address is unique.  Indeed there
 may be more than one server with class `DS9` and name `ds9`.
 
-In order to get the address of a more specific server, you max call
+In order to get the address of a more specific server, you may call
 [`XPA.find(ident)`](@ref) where `ident` is a regular expression or a string
 template to match against the `CLASS:NAME` identifier of the server.  For
 instance:
 
 ```julia
-julia> addr = XPA.find(r"^DS9:")
+julia> addr = XPA.find(r"^DS9:").addr
 "7f000001:44805"
 ```
 
-Keywords `user` or `throwerrors` can be specified to match the name of the
-owner of the server or to throw an exception if no match is found.
+The above example will fail if no match is found as [`XPA.find(ident)`](@ref)
+yields `nothing` in that case.  A better usage is:
+
+```julia
+julia> apt = XPA.find(r"^DS9:")
+julia> addr = (apt === nothing ? nothing : apt.addr)
+"7f000001:44805"
+```
+
+You can also set the `throwerrors` keyword to `true` to throw an exception if
+no match is found.
+
+The keywords `user` can be specified to match the name of the owner of the
+server.  For instance:
+
+```julia
+julia> apt = XPA.find(r"^DS9:"; user=ENV["USER"])
+```
+
+to only match the servers owned by you.
 
 To query the version number of SAOImage-DS9, we can do:
 
