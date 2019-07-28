@@ -120,10 +120,10 @@ is `user="*"` which matches any user.
 Keyword `throwerrors` may be set true (it is false by default) to automatically
 throw an exception if no match is found (instead of returning `nothing`).
 
-See also [`XPA.Client`](@ref) and [`XPA.list`](@ref).
+See also [`XPA.Client`](@ref), [`XPA.address`](@ref) and [`XPA.list`](@ref).
 
 """
-find(ident::Union{AbstractString,Regex}; kwds...)::Union{String,Nothing} =
+find(ident::Union{AbstractString,Regex}; kwds...) =
     find(TEMPORARY, ident; kwds...)
 
 function find(xpa::Client,
@@ -131,8 +131,14 @@ function find(xpa::Client,
               user::AbstractString = "*",
               throwerrors::Bool = false)::Union{AccessPoint,Nothing}
     i = findfirst(isequal(':'), ident)
-    class = ident[1:i-1]
-    name = ident[i+1:end]
+    if i === nothing
+        # allow any class
+        class = "*"
+        name = ident
+    else
+        class = ident[1:i-1]
+        name = ident[i+1:end]
+    end
     anyuser = (user == "*")
     anyclass = (class == "*")
     anyname = (name == "*")
@@ -169,6 +175,30 @@ end
 
 @noinline _noserversmatch(ident::Regex) =
     "no XPA servers match regular expression \"$(ident.pattern)\""
+
+"""
+```julia
+XPA.address(apt) -> addr
+```
+
+yields the address of XPA accesspoint `apt` which can be: an instance of
+`XPA.AccessPoint`, a string with a valid XPA server address or a server
+`class:name` identifier.  In the latter case, [`XPA.find`](@ref) is called to
+find a matching server which is much longer.
+
+"""
+address(apt::XPA.AccessPoint) =
+    apt.addr
+
+function address(apt::AbstractString)
+    i = findfirst(isequal(':'), apt)
+    if (i === nothing ||
+        tryparse(UInt, apt[1:i-1],  base = 16) === nothing ||
+        tryparse(UInt, apt[i+1:end],  base = 10) === nothing)
+        return address(XPA.find(apt; throwerrors = true))
+    end
+    return apt
+end
 
 """
 ```julia

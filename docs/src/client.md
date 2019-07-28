@@ -81,6 +81,9 @@ julia> apt = XPA.find(r"^DS9:"; user=ENV["USER"])
 
 to only match the servers owned by you.
 
+The method [`XPA.address`](@ref) yields the XPA address of a server given its
+`class:name` identifier, its address or its `XPA.AccessPoint`.
+
 To query the version number of SAOImage-DS9, we can do:
 
 ```julia
