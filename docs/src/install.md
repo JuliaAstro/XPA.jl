@@ -5,7 +5,8 @@ on your computer.  If this is not the case, they may be available for your
 operating system.  Otherwise, you'll have to build it and install it yourself.
 Depending on this condition, there are two possibilities described below.
 
-The source code of XPA.jl is available [here](https://github.com/emmt/XPA.jl).
+The source code of XPA.jl is available
+[here](https://github.com/JuliaAstro/XPA.jl).
 
 
 ## Easy installation

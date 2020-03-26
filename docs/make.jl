@@ -17,6 +17,6 @@ makedocs(
 
 if DEPLOYDOCS
     deploydocs(
-        repo = "github.com/emmt/XPA.jl.git",
+        repo = "github.com/JuliaAstro/XPA.jl.git",
     )
 end

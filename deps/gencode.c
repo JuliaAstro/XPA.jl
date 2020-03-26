@@ -6,7 +6,7 @@
  *------------------------------------------------------------------------------
  *
  * This file is part of XPA.jl released under the MIT "expat" license.
- * Copyright (C) 2016-2018, Éric Thiébaut (https://github.com/emmt/XPA.jl).
+ * Copyright (C) 2016-2020, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
  */
 
 #include <stdlib.h>
