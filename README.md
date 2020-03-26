@@ -14,7 +14,7 @@ The [DS9.jl]((https://github.com/JuliaAstro/DS9.j) package is a Julia package
 that exploits XPA.jl to communicate with [SAOImage-DS9](http://ds9.si.edu/site/Home.html).
 
 | **Documentation**               | **License**                     | **Build Status**              | **Code Coverage**                                                   |
-|:-------------------------------:|:-------------------------------:|:-----------------------------:|--------------------------------------------------------------------:|
+|:-------------------------------:|:-------------------------------:|:-----------------------------:|:-------------------------------------------------------------------:|
 | [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][travis-img]][travis-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
 
 
