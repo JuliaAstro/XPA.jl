@@ -10,6 +10,34 @@ XPA.jl can be used to send commands and data to XPA servers, to query data from
 XPA servers or to implement an XPA server.  The interface exploits the power of
 `ccall` to directly call the routines of the compiled XPA library.
 
-| Documentation                              | License                                                                                      | Travis-CI                                                                                                 | CoverAlls                                                                                                                                                  | CodeCov                                                                                                                              |
-|:-------------------------------------------|:---------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------|
-| [Devel](https://JuliaAstro.github.io/XPA.jl/dev) | [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md) | [![Build Status](https://travis-ci.org/JuliaAstro/XPA.jl.svg?branch=master)](https://travis-ci.org/JuliaAstro/XPA.jl) | [![Coverage Status](https://coveralls.io/repos/JuliaAstro/XPA.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/JuliaAstro/XPA.jl?branch=master) | [![codecov.io](http://codecov.io/github/JuliaAstro/XPA.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaAstro/XPA.jl?branch=master) |
+The [DS9.jl]((https://github.com/JuliaAstro/DS9.j) package is a Julia package
+that exploits XPA.jl to communicate with [SAOImage-DS9](http://ds9.si.edu/site/Home.html).
+
+| **Documentation**               | **License**                     | **Build Status**              | **Code Coverage**                                                   |
+|:-------------------------------:|:-------------------------------:|:-----------------------------:|--------------------------------------------------------------------:|
+| [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][travis-img]][travis-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
+
+
+[doc-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[doc-stable-url]: https://JuliaAstro.github.io/XPA.jl/stable
+
+[doc-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
+[doc-dev-url]: https://JuliaAstro.github.io/XPA.jl/dev
+
+[license-url]: ./LICENSE.md
+[license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
+
+[travis-img]: https://travis-ci.org/JuliaAstro/XPA.jl.svg?branch=master
+[travis-url]: https://travis-ci.org/JuliaAstro/XPA.jl
+
+[appveyor-img]: https://ci.appveyor.com/api/projects/status/github/JuliaAstro/XPA.jl?branch=master
+[appveyor-url]: https://ci.appveyor.com/project/JuliaAstro/XPA-jl/branch/master
+
+[coveralls-img]: https://coveralls.io/repos/JuliaAstro/XPA.jl/badge.svg?branch=master&service=github
+[coveralls-url]: https://coveralls.io/github/JuliaAstro/XPA.jl?branch=master
+
+[codecov-img]: http://codecov.io/github/JuliaAstro/XPA.jl/coverage.svg?branch=master
+[codecov-url]: http://codecov.io/github/JuliaAstro/XPA.jl?branch=master
+
+[julia-url]: https://julialang.org/
+[julia-pkgs-url]: https://pkg.julialang.org/
