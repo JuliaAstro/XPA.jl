@@ -12,27 +12,16 @@ julia:
   - 1.4
   - nightly
 
-matrix:
-  allow_failures:
-    - os: osx
-    - julia: nightly
-
 notifications:
   email: false
 
 before_install:
   - sudo apt-get install -y saods9 xpa-tools libxpa-dev
 
-# uncomment the following lines to override the default test script
-script:
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia --check-bounds=yes -e 'using Pkg; Pkg.clone(pwd()); Pkg.build("XPA"); Pkg.test("XPA"; coverage=true)'
-
-after_success:
-  - julia --project=coverage/ -e 'if VERSION >= v"0.7"; using Pkg; Pkg.instantiate(); end'
-  - julia --project=coverage/ coverage/coverage.jl
-
 jobs:
+  allow_failures:
+    - os: osx
+    - julia: nightly
   include:
     - stage: "Documentation"
       julia: 1.0
