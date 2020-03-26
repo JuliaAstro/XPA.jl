@@ -1,6 +1,6 @@
 The XPA.jl package is licensed under the MIT "Expat" License:
 
-> Copyright (c) 2016-2019: Éric Thiébaut https://github.com/emmt
+> Copyright (c) 2016-2020: Éric Thiébaut https://github.com/JuliaAstro/XPA.jl
 >
 > Permission is hereby granted, free of charge, to any person obtaining
 > a copy of this software and associated documentation files (the
