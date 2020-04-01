@@ -10,7 +10,7 @@ XPA.jl can be used to send commands and data to XPA servers, to query data from
 XPA servers or to implement an XPA server.  The interface exploits the power of
 `ccall` to directly call the routines of the compiled XPA library.
 
-The [DS9.jl]((https://github.com/JuliaAstro/DS9.j) package is a Julia package
+The [DS9.jl](https://github.com/JuliaAstro/DS9.j) package is a Julia package
 that exploits XPA.jl to communicate with [SAOImage-DS9](http://ds9.si.edu/site/Home.html).
 
 | **Documentation**               | **License**                     | **Build Status**              | **Code Coverage**                                                   |
