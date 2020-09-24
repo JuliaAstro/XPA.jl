@@ -30,6 +30,7 @@ const MODE_FREEBUF = 4 # XPA_MODE_FREEBUF in `xpap.h`
 const MODE_ACL     = 8 # XPA_MODE_ACL in `xpap.h`
 
 """
+    XPA.Handle
 
 Abstract type `XPA.Handle` is the super type of client ([`XPA.Client`](@ref))
 and server ([`XPA.Server`](@ref)) connections in the XPA Messaging System.
