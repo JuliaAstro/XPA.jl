@@ -251,6 +251,8 @@ function get(xpa::Client,
     return _get(xpa, apt, cmd, mode, _nmax(nmax), throwerrors)
 end
 
+get(xpa::Client, apt::AccessPoint, cmd::AbstractString; kwargs...) = get(xpa, apt.addr, cmd; kwargs...)
+
 function get(xpa::Client,
              apt::AbstractString,
              args::Union{AbstractString,Real}...;
