@@ -12,9 +12,6 @@ julia:
 notifications:
   email: false
 
-before_install:
-  - sudo apt-get install -y saods9 xpa-tools libxpa-dev
-
 jobs:
   allow_failures:
     - julia: nightly
