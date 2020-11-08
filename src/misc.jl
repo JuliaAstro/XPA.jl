@@ -113,56 +113,69 @@ retrieve a field of type `T` at offset `off` (in bytes) with respect to address
 respect to which the second is applied.  If `ptr` is NULL, `def` is returned.
 
 """
-_get_field(::Type{T}, ptr::Ptr{Cvoid}, off::Int, def::T) where {T} =
+_get_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, def::T) where {T} =
     (ptr == C_NULL ? def : unsafe_load(convert(Ptr{T}, ptr + off)))
 
-_get_field(::Type{String}, ptr::Ptr{Cvoid}, off::Int, def::String) =
+_get_field(::Type{String}, ptr::Ptr{Cvoid}, off::UInt, def::String) =
     (ptr == C_NULL ? def : unsafe_string(convert(Ptr{Ptr{Byte}}, ptr + off)))
 
-function _get_field(::Type{T}, ptr::Ptr{Cvoid}, off1::Int, off2::Int,
+function _get_field(::Type{T}, ptr::Ptr{Cvoid}, off1::UInt, off2::UInt,
                     def::T) where {T}
     _get_field(T, _get_field(Ptr{Cvoid}, ptr, off1, C_NULL), off2, def)
 end
 
-function _set_field(::Type{T}, ptr::Ptr{Cvoid}, off::Int, val) where {T}
+function _set_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, val) where {T}
     @assert ptr != C_NULL
     unsafe_store!(convert(Ptr{T}, ptr + off), val)
 end
 
-_get_comm(xpa::Handle) =
-    _get_field(Ptr{Cvoid}, xpa.ptr, _offsetof_comm, C_NULL)
-
-for (memb, T, def) in ((:name,      String, ""),
-                       (:class,     String, ""),
-                       (:send_mode, Cint,   Cint(0)),
-                       (:recv_mode, Cint,   Cint(0)),
-                       (:method,    String, ""),
-                       (:sendian,   String, "?"))
-    off = Symbol(:_offsetof_, memb)
-    func = Symbol(:get_, memb)
-    @eval begin
-        $func(xpa::Handle) = _get_field($T, xpa.ptr, $off, $def)
-    end
+let T = CDefs.XPARec, off = fieldoffset(T, Base.fieldindex(T, :comm, true))
+    @eval _get_comm(xpa::Handle) =
+        _get_field(Ptr{Cvoid}, xpa.ptr, $off, C_NULL)
 end
 
-for (memb, T, def) in ((:comm_status,  Cint,       Cint(0)),
-                       (:comm_cmdfd,   Cint,       Cint(-1)),
-                       (:comm_datafd,  Cint,       Cint(-1)),
-                       (:comm_ack,     Cint,       Cint(1)),
-                       (:comm_cendian, String,     "?"),
-                       (:comm_buf,     Ptr{Byte},  NULL),
-                       (:comm_len,     Csize_t,    Csize_t(0)))
-    off = Symbol(:_offsetof_, memb)
-    func = Symbol(:get_, memb)
-    @eval begin
-        $func(xpa::Handle) = _get_field($T, _get_comm(xpa), $off, $def)
+for (func, memb, defval) in ((:get_name,      :name,         ""),
+                             (:get_class,     :xclass,       ""),
+                             (:get_send_mode, :send_mode,    0),
+                             (:get_recv_mode, :receive_mode, 0),
+                             (:get_method,    :method,       ""),
+                             (:get_sendian,   :sendian,      "?"))
+    T = CDefs.XPARec
+    idx = Base.fieldindex(T, memb, true)
+    off = fieldoffset(T, idx)
+    if isa(defval, String)
+        @assert fieldtype(T, idx) === Ptr{UInt8}
+        typ = String
+        def = defval
+    else
+        typ = fieldtype(T, idx)
+        def = convert(typ, defval)
     end
-    if memb == :comm_buf || memb == :comm_len
-        func = Symbol(:_set_, memb)
-        @eval begin
-            $func(xpa::Handle, val) =
-                unsafe_store!(convert(Ptr{$T}, _get_comm(xpa) + $off), val)
-        end
+    @eval $func(xpa::Handle) = _get_field($typ, xpa.ptr, $off, $def)
+end
+
+for (func, memb, defval) in ((:get_comm_status,  :status,   0),
+                             (:get_comm_cmdfd,   :cmdfd,   -1),
+                             (:get_comm_datafd,  :datafd,  -1),
+                             (:get_comm_ack,     :ack,      1),
+                             (:get_comm_cendian, :cendian, "?"),
+                             (:get_comm_buf,     :buf,     NULL),
+                             (:get_comm_len,     :len,      0))
+    T = CDefs.XPACommRec
+    idx = Base.fieldindex(T, memb, true)
+    off = fieldoffset(T, idx)
+    if isa(defval, String)
+        @assert fieldtype(T, idx) === Ptr{UInt8}
+        typ = String
+        def = defval
+    else
+        typ = fieldtype(T, idx)
+        def = convert(typ, defval)
+    end
+    @eval $func(xpa::Handle) = _get_field($typ, _get_comm(xpa), $off, $def)
+    if memb == :buf || memb == :len
+        @eval $(Symbol(:_set_comm_, memb))(xpa::Handle, val) =
+            unsafe_store!(convert(Ptr{$typ}, _get_comm(xpa) + $off), val)
     end
 end
 

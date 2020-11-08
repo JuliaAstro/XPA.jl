@@ -217,13 +217,15 @@ end
 const _MINIMAL_SEND_MODE = MODE_FREEBUF
 const _MINIMAL_RECEIVE_MODE = (MODE_BUF | MODE_FILLBUF | MODE_FREEBUF)
 
-getsendmode(xpa::Server) =
-    (xpa.ptr == C_NULL ? zero(_typeof_send_mode) :
-     unsafe_load(Ptr{_typeof_send_mode}(xpa.ptr + _offsetof_send_mode)))
-
-getreceivemode(xpa::Server) =
-    (xpa.ptr == C_NULL ? zero(_typeof_receive_mode) :
-     unsafe_load(Ptr{_typeof_receive_mode}(xpa.ptr + _offsetof_receive_mode)))
+for (func, memb) in ((:getsendmode,    :send_mode),
+                     (:getreceivemode, :receive_mode))
+    T = CDefs.XPARec
+    idx = Base.fieldindex(T, memb, true)
+    off = fieldoffset(T, idx)
+    typ = fieldtype(T, idx)
+    @eval $func(xpa::Server) =
+        (xpa.ptr == C_NULL ? zero($typ) : unsafe_load(Ptr{$typ}(xpa.ptr + $off)))
+end
 
 # The send callback is executed in response to an external request from the
 # `xpaget` program, the `XPAGet()` routine, or `XPAGetFd()` routine.

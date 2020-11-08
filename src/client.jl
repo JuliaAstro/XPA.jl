@@ -72,14 +72,14 @@ function list(xpa::Client = TEMPORARY)
             @warn "expecting 5 fields per access point (\"$str\")"
             continue
         end
-        access = UInt(0)
+        access = zero(CDefs.GET)
         for c in arr[3]
             if c == 'g'
-                access |= GET
+                access |= CDefs.GET
             elseif c == 's'
-                access |= SET
+                access |= CDefs.SET
             elseif c == 'i'
-                access |= INFO
+                access |= CDefs.INFO
             else
                 @warn "unexpected access string (\"$(arr[3])\")"
                 continue
@@ -251,7 +251,8 @@ function get(xpa::Client,
     return _get(xpa, apt, cmd, mode, _nmax(nmax), throwerrors)
 end
 
-get(xpa::Client, apt::AccessPoint, cmd::AbstractString; kwargs...) = get(xpa, apt.addr, cmd; kwargs...)
+get(xpa::Client, apt::AccessPoint, cmd::AbstractString; kwargs...) =
+    get(xpa, apt.addr, cmd; kwargs...)
 
 function get(xpa::Client,
              apt::AbstractString,
