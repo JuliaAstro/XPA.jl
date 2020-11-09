@@ -217,23 +217,13 @@ end
 const _MINIMAL_SEND_MODE = MODE_FREEBUF
 const _MINIMAL_RECEIVE_MODE = (MODE_BUF | MODE_FILLBUF | MODE_FREEBUF)
 
-for (func, memb) in ((:getsendmode,    :send_mode),
-                     (:getreceivemode, :receive_mode))
-    T = CDefs.XPARec
-    idx = Base.fieldindex(T, memb, true)
-    off = fieldoffset(T, idx)
-    typ = fieldtype(T, idx)
-    @eval $func(xpa::Server) =
-        (xpa.ptr == C_NULL ? zero($typ) : unsafe_load(Ptr{$typ}(xpa.ptr + $off)))
-end
-
 # The send callback is executed in response to an external request from the
 # `xpaget` program, the `XPAGet()` routine, or `XPAGetFd()` routine.
 function _send(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
                bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})::Cint
     # Check assumptions.
     srv = Server(handle)
-    (getsendmode(srv) & _MINIMAL_SEND_MODE) == _MINIMAL_SEND_MODE ||
+    (get_send_mode(srv) & _MINIMAL_SEND_MODE) == _MINIMAL_SEND_MODE ||
         return error(srv, "send mode must have option `freebuf=true`")
 
     # Call actual callback providing the client data is the address of a known
@@ -252,7 +242,7 @@ function _recv(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
                buf::Ptr{Byte}, len::Csize_t)::Cint
     # Check assumptions.
     srv = Server(handle)
-    (getreceivemode(srv) & _MINIMAL_RECEIVE_MODE) == _MINIMAL_RECEIVE_MODE ||
+    (get_recv_mode(srv) & _MINIMAL_RECEIVE_MODE) == _MINIMAL_RECEIVE_MODE ||
         return error(srv, "receive mode must have options `buf=true`, `fillbuf=true` and `freebuf=true`")
 
     # Call actual callback providing the client data is the address of a known
