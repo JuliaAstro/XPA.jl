@@ -170,6 +170,12 @@ struct AccessPoint
     access::UInt  # allowed access
 end
 
+# Access mode bits in AccessPoint.
+const SET    = UInt(1)
+const GET    = UInt(2)
+const INFO   = UInt(3)
+const ACCESS = UInt(4)
+
 """
 
 `XPA.NullBuffer` is a singleton type representing a NULL-buffer when sending

@@ -12,12 +12,6 @@ export XPACommRec, XPARec
 # CONSTANTS
 #
 
-# Access mode bits for XPA requests.
-const SET    = 1
-const GET    = 2
-const INFO   = 3
-const ACCESS = 4
-
 # Sizes.
 const SZ_LINE = 4096
 const XPA_NAMELEN = 1024

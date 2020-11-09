@@ -72,14 +72,14 @@ function list(xpa::Client = TEMPORARY)
             @warn "expecting 5 fields per access point (\"$str\")"
             continue
         end
-        access = zero(CDefs.GET)
+        access = zero(GET)
         for c in arr[3]
             if c == 'g'
-                access |= CDefs.GET
+                access |= GET
             elseif c == 's'
-                access |= CDefs.SET
+                access |= SET
             elseif c == 'i'
-                access |= CDefs.INFO
+                access |= INFO
             else
                 @warn "unexpected access string (\"$(arr[3])\")"
                 continue
