@@ -86,7 +86,7 @@ function rproc2(::Nothing, srv::XPA.Server, params::String,
 end
 
 function main2()
-    server = XPA.Server("TEST", "test1", "help me!",
+    server = XPA.Server("TEST", "test2", "help me!",
                         XPA.SendCallback(sproc2, nothing),
                         XPA.ReceiveCallback(rproc2, nothing))
     XPA.mainloop()

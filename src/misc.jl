@@ -116,8 +116,12 @@ respect to which the second is applied.  If `ptr` is NULL, `def` is returned.
 _get_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, def::T) where {T} =
     (ptr == C_NULL ? def : unsafe_load(convert(Ptr{T}, ptr + off)))
 
-_get_field(::Type{String}, ptr::Ptr{Cvoid}, off::UInt, def::String) =
-    (ptr == C_NULL ? def : unsafe_string(convert(Ptr{Ptr{Byte}}, ptr + off)))
+_get_field(::Type{String}, ptr::Ptr{Cvoid}, off::UInt, def::String) = begin
+    ptr == C_NULL && return def
+    buf = unsafe_load(convert(Ptr{Ptr{Byte}}, ptr + off))
+    buf == C_NULL && return def
+    return unsafe_string(buf)
+end
 
 function _get_field(::Type{T}, ptr::Ptr{Cvoid}, off1::UInt, off2::UInt,
                     def::T) where {T}
