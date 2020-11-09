@@ -424,6 +424,45 @@ has_error(rep::Reply, i::Integer=1) =
 const _XPA_ERROR_PREFIX = "XPA\$ERROR "
 const _XPA_ERROR = Tuple(map(Byte, collect(_XPA_ERROR_PREFIX)))
 
+function Base.show(io::IO, rep::Reply)
+    print(io, "XPA.Reply")
+    n = length(rep)
+    if n == 0
+        print(io, " (no replies)")
+    else
+        print(io, " (", n, " repl", (n > 1 ? "ies" : "y"), "):\n")
+        for i in 1:n
+            # Check whether all bytes in the data buffer are printable ASCII
+            # characters.
+            ptr, len = _get_buf(rep, i, true)
+            cstring = true
+            for j in 1:len
+                b = unsafe_load(ptr, j)
+                if (b & 0x80) != 0
+                    # Not ASCII.
+                    cstring = false
+                    break
+                end
+                c = Char(b)
+                if !(isprint(c) || c == '\n' || c == '\r' || c == '\t')
+                    # Not Printable.
+                    cstring = false
+                    break
+                end
+            end
+            print(io, "  ", i, ": server = ",
+                  repr(get_server(rep, i); context=io), ", message = ",
+                  repr(get_message(rep, i); context=io), ", data = ")
+            if cstring
+                print(io, repr(unsafe_string(ptr, len);  context=io))
+            else
+                print(io, len, (len > 1 ? " bytes" : " byte"))
+            end
+            i < n && print(io, "\n")
+        end
+    end
+end
+
 """
 ```julia
 XPA.has_errors(rep) -> boolean
