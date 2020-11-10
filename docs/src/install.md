@@ -1,5 +1,14 @@
 # Installation
 
+## Installation for Julia ≥ 1.3
+
+Since version 0.1.0 and provided you use Julia version ≥ 1.3, `XPA.jl` uses
+`XPA_jll` artifact to provide the XPA dynamic library so it is sufficient to
+just install `XPA.jl` from Julia's package manager.
+
+
+## Installation for older Julia versions
+
 To use XPA.jl package, XPA dynamic library and header files must be installed
 on your computer.  If this is not the case, they may be available for your
 operating system.  Otherwise, you'll have to build it and install it yourself.
@@ -9,7 +18,7 @@ The source code of XPA.jl is available
 [here](https://github.com/JuliaAstro/XPA.jl).
 
 
-## Easy installation
+### Eays installation
 
 The easiest installation is when your system provides XPA dynamic library and
 header files as a package.  For example, on Ubuntu, just do:
@@ -26,7 +35,7 @@ Pkg.add("XPA")
 ```
 
 
-## Custom installation
+### Custom installation
 
 If XPA dynamic library and header files are not provided by your system, you
 may install it manually.  That's easy but make sure that you compile and
