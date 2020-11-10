@@ -89,9 +89,6 @@ end
 getconfig(key::Symbol) = getconfig(string(key))
 setconfig!(key::Symbol, val) = setconfig!(string(key), val)
 
-@deprecate config(key::AbstractString) getconfig(key)
-@deprecate config!(key::AbstractString, val) setconfig!(key, val)
-
 #------------------------------------------------------------------------------
 # PRIVATE METHODS
 
