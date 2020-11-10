@@ -45,13 +45,29 @@ var documenterSearchIndex = {"docs": [
     "page": "Installation",
     "title": "Installation",
     "category": "section",
+    "text": ""
+},
+
+{
+    "location": "install/#Installation-for-Julia-1.3-1",
+    "page": "Installation",
+    "title": "Installation for Julia ≥ 1.3",
+    "category": "section",
+    "text": "Since version 0.1.0 and provided you use Julia version ≥ 1.3, XPA.jl uses XPA_jll artifact to provide the XPA dynamic library so it is sufficient to just install XPA.jl from Julia\'s package manager."
+},
+
+{
+    "location": "install/#Installation-for-older-Julia-versions-1",
+    "page": "Installation",
+    "title": "Installation for older Julia versions",
+    "category": "section",
     "text": "To use XPA.jl package, XPA dynamic library and header files must be installed on your computer.  If this is not the case, they may be available for your operating system.  Otherwise, you\'ll have to build it and install it yourself. Depending on this condition, there are two possibilities described below.The source code of XPA.jl is available here."
 },
 
 {
-    "location": "install/#Easy-installation-1",
+    "location": "install/#Eays-installation-1",
     "page": "Installation",
-    "title": "Easy installation",
+    "title": "Eays installation",
     "category": "section",
     "text": "The easiest installation is when your system provides XPA dynamic library and header files as a package.  For example, on Ubuntu, just do:sudo apt-get install xpa-tools libxpa-devThen, to install XPA.jl package from Julia, just do:using Pkg\nPkg.add(\"XPA\")"
 },
@@ -309,7 +325,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "XPA client methods and types",
     "category": "section",
-    "text": "XPA.ClientXPA.getXPA.ReplyXPA.get_dataXPA.get_serverXPA.get_messageXPA.has_errorXPA.has_errorsXPA.has_messageXPA.verifyXPA.setXPA.buffer"
+    "text": "XPA.Client\nXPA.get\nXPA.Reply\nXPA.get_data\nXPA.get_server\nXPA.get_message\nXPA.has_error\nXPA.has_errors\nXPA.has_message\nXPA.verify\nXPA.set\nXPA.buffer"
 },
 
 {
@@ -389,7 +405,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "XPA server methods and types",
     "category": "section",
-    "text": "XPA.ServerXPA.SendCallbackXPA.store!XPA.ReceiveCallbackXPA.peekerror(::XPA.Server,::AbstractString)XPA.pollXPA.messageXPA.mainloop"
+    "text": "XPA.Server\nXPA.SendCallback\nXPA.store!\nXPA.ReceiveCallback\nXPA.peek\nerror(::XPA.Server,::AbstractString)\nXPA.poll\nXPA.message\nXPA.mainloop"
+},
+
+{
+    "location": "library/#XPA.address",
+    "page": "Reference",
+    "title": "XPA.address",
+    "category": "function",
+    "text": "XPA.address(apt) -> addr\n\nyields the address of XPA accesspoint apt which can be: an instance of XPA.AccessPoint, a string with a valid XPA server address or a server class:name identifier.  In the latter case, XPA.find is called to find a matching server which is much longer.\n\n\n\n\n\n"
 },
 
 {
@@ -437,7 +461,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Utilities",
     "category": "section",
-    "text": "XPA.listXPA.AccessPointXPA.findXPA.getconfigXPA.setconfig!"
+    "text": "XPA.address\nXPA.list\nXPA.AccessPoint\nXPA.find\nXPA.getconfig\nXPA.setconfig!"
 },
 
 {
