@@ -10,15 +10,6 @@
 #
 
 """
-
-`XPA.TEMPORARY` can be specified wherever an `XPA.Client` instance is expected
-to use a non-persistent XPA connection.  This resource exists for backward
-compatibilty, it should not be used as it results in slower XPA client requests.
-
-"""
-const TEMPORARY = Client(C_NULL)
-
-"""
     XPA.Client()
 
 yields a persistent XPA client connection which can be used for calls to
