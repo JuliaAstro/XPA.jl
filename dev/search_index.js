@@ -305,6 +305,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "library/#XPA.join_arguments",
+    "page": "Reference",
+    "title": "XPA.join_arguments",
+    "category": "function",
+    "text": "XPA.join_arguments(args)\n\njoins a tuple of arguments into a single string where arguments are separated by a single space.  It is implemented so as to be faster than join(args, \" \") when args has less than 2 arguments.  It is intended to build XPA command string from arguments.\n\n\n\n\n\n"
+},
+
+{
     "location": "library/#XPA.verify",
     "page": "Reference",
     "title": "XPA.verify",
@@ -333,7 +341,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "XPA client methods and types",
     "category": "section",
-    "text": "XPA.Client\nXPA.connection\nXPA.get\nXPA.Reply\nXPA.get_data\nXPA.get_server\nXPA.get_message\nXPA.has_error\nXPA.has_errors\nXPA.has_message\nXPA.verify\nXPA.set\nXPA.buffer"
+    "text": "XPA.Client\nXPA.connection\nXPA.get\nXPA.Reply\nXPA.get_data\nXPA.get_server\nXPA.get_message\nXPA.has_error\nXPA.has_errors\nXPA.has_message\nXPA.join_arguments\nXPA.verify\nXPA.set\nXPA.buffer"
 },
 
 {
