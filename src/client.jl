@@ -12,17 +12,16 @@
 """
 
 `XPA.TEMPORARY` can be specified wherever an `XPA.Client` instance is expected
-to use a non-persistent XPA connection.
+to use a non-persistent XPA connection.  This resource exists for backward
+compatibilty, it should not be used as it results in slower XPA client requests.
 
 """
 const TEMPORARY = Client(C_NULL)
 
 """
-```julia
-XPA.Client()
-```
+    XPA.Client()
 
-yields a persistent XPA client handle which can be used for calls to
+yields a persistent XPA client connection which can be used for calls to
 [`XPA.set`](@ref) and [`XPA.get`](@ref) methods.  Persistence means that a
 connection to an XPA server is not closed when one of the above calls is
 completed but will be re-used on successive calls.  Using `XPA.Client()`
@@ -30,16 +29,49 @@ therefore saves the time it takes to connect to a server, which could be
 significant with slow connections or if there will be a large number of
 exchanges with a given access point.
 
+!!! note
+    To avoid the delay for connecting to the XPA server, all XPA methods that
+    perform XPA client requests now automatically use a connection that is kept
+    open for the calling thread.  Directly calling `XPA.Client()` should be
+    unnecessary, this method is kept for backward compatibility.
+
 See also [`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref) and
 [`XPA.find`](@ref).
 
 """
-function Client()
+Client() = Client(_open())
+
+"""
+    XPA.connection()
+
+yields a persistent XPA client connection that is kept open for the calling
+thread (a different connection is memorized for each Julia thread).
+
+Per-thread client connections are automatically open (or even re-open) as
+needed.
+
+""" connection
+
+const CONNECTIONS = Client[]
+
+function connection()
+    id = Threads.threadid()
+    while length(CONNECTIONS) < id
+        push!(CONNECTIONS, Client(C_NULL))
+    end
+    if !isopen(CONNECTIONS[id])
+        # Automatically (re)open the client connection.
+        CONNECTIONS[id].ptr = _open()
+    end
+    return CONNECTIONS[id]
+end
+
+function _open()
     # The argument of XPAOpen is currently ignored (it is reserved for future
     # use).
     ptr = ccall((:XPAOpen, libxpa), Ptr{Cvoid}, (Ptr{Cvoid},), C_NULL)
     ptr != C_NULL || error("failed to create a persistent XPA connection")
-    return finalizer(close, Client(ptr))
+    return ptr
 end
 
 function Base.close(xpa::Client)
@@ -51,19 +83,17 @@ function Base.close(xpa::Client)
 end
 
 """
-```julia
-XPA.list(xpa=XPA.TEMPORARY)
-```
+    XPA.list(xpa=XPA.connection())
 
-yields a list of available XPA access points.  Optional argument `xpa` is a
-persistent XPA client connection; if omitted, a temporary client connection
-will be created.  The result is a vector of [`XPA.AccessPoint`](@ref)
-instances.
+yields a list of available XPA access points.  The result is a vector of
+[`XPA.AccessPoint`](@ref) instances.  Optional argument `xpa` is a persistent
+XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a
+per-thread connection is used (see [`XPA.connection`](@ref)).
 
-See also [`XPA.Client`](@ref) and [`XPA.find`](@ref).
+See also [`XPA.Client`](@ref), [`XPA.connection`](@ref) and [`XPA.find`](@ref).
 
 """
-function list(xpa::Client = TEMPORARY)
+function list(xpa::Client = connection())
     lst = AccessPoint[]
     for str in split(chomp(get(String, xpa, "xpans")), r"\n|\r\n?";
                      keepempty=false)
@@ -91,27 +121,27 @@ function list(xpa::Client = TEMPORARY)
 end
 
 """
-```julia
-XPA.find([xpa=XPA.TEMPORARY,] ident) -> apt
-```
+    XPA.find([xpa=XPA.connection(),] ident) -> apt
 
 yields the accesspoint of the first XPA server matching `ident` or `nothing` if
 none is found.  If a match is found, the result `apt` is an instance of
 `XPA.AccessPoint` and has the following members:
 
-```julia
-apt.class   # class of the access point (String)
-apt.name    # name of the access point
-apt.addr    # socket access method (host:port for inet,
-apt.user    # user name of access point owner
-apt.access  # allowed access
-```
+    apt.class   # class of the access point (String)
+    apt.name    # name of the access point
+    apt.addr    # socket access method (host:port for inet,
+    apt.user    # user name of access point owner
+    apt.access  # allowed access
 
 all members are `String`s but the last one, `access`, which is an `UInt`.
 
 Argument `ident` may be a regular expression or a string of the
 form `CLASS:NAME` where `CLASS` and `CLASS` are matched against the server
 class and name respectively (they may be `"*"` to match any).
+
+Optional argument `xpa` is a persistent XPA client connection (created by
+[`XPA.Client`](@ref)); if omitted, a per-thread connection is used (see
+[`XPA.connection`](@ref)).
 
 Keyword `user` may be used to specify the user name of the owner of the server
 process, for instance `ENV["user"]` to match your servers.  The default
@@ -124,7 +154,7 @@ See also [`XPA.Client`](@ref), [`XPA.address`](@ref) and [`XPA.list`](@ref).
 
 """
 find(ident::Union{AbstractString,Regex}; kwds...) =
-    find(TEMPORARY, ident; kwds...)
+    find(connection(), ident; kwds...)
 
 function find(xpa::Client,
               ident::AbstractString;
@@ -208,9 +238,10 @@ XPA.get([T, [dims,]] [xpa,] apt, args...)
 retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
 arguments `args...` (automatically converted into a single string where the
-arguments are separated by a single space).  Optional argument `xpa` specifies
-an XPA handle (created by [`XPA.Client`](@ref)) for faster connections.  The
-returned value depends on the optional arguments `T` and `dims`.
+arguments are separated by a single space).  Optional argument `xpa` is a
+persistent XPA client connection (created by [`XPA.Client`](@ref)); if omitted,
+a per-thread connection is used (see [`XPA.connection`](@ref)).  The returned
+value depends on the optional arguments `T` and `dims`.
 
 If neither `T` nor `dims` are specified, an instance of [`XPA.Reply`](@ref) is
 returned with all the answer(s) from the XPA server(s).  The following keywords
@@ -262,7 +293,7 @@ function get(xpa::Client,
 end
 
 get(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
-    get(TEMPORARY, apt, _join(args); kwds...)
+    get(connection(), apt, _join(args); kwds...)
 
 _get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
 
@@ -727,7 +758,7 @@ function set(xpa::Client,
 end
 
 set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
-    set(TEMPORARY, apt, _join(args); kwds...)
+    set(connection(), apt, _join(args); kwds...)
 
 function _set(xpa::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, data::Union{NullBuffer,DenseArray},

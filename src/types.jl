@@ -50,6 +50,8 @@ connection in the XPA Messaging System.
 """
 mutable struct Client <: Handle # must be mutable to be finalized
     ptr::Ptr{Cvoid} # pointer to XPARec structure
+    # finalizer can be safely called with a NULL pointer
+    Client(ptr::Ptr) = finalizer(close, new(ptr))
 end
 
 """
