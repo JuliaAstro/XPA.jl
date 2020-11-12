@@ -207,9 +207,7 @@ end
     "no XPA servers match regular expression \"$(ident.pattern)\""
 
 """
-```julia
-XPA.address(apt) -> addr
-```
+    XPA.address(apt) -> addr
 
 yields the address of XPA accesspoint `apt` which can be: an instance of
 `XPA.AccessPoint`, a string with a valid XPA server address or a server
@@ -231,9 +229,7 @@ function address(apt::AbstractString)
 end
 
 """
-```julia
-XPA.get([T, [dims,]] [xpa,] apt, args...)
-```
+    XPA.get([T, [dims,]] [xpa,] apt, args...)
 
 retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
@@ -411,9 +407,7 @@ _nmax(rep::Reply) = length(rep.lengths)
 
 
 """
-```julia
-get_server(rep, i=1)
-```
+    XPA.get_server(rep, i=1)
 
 yields the XPA identifier of the server which sent the `i`-th reply in XPA
 answer `rep`.  An empty string is returned if there is no `i`-th reply.
@@ -424,9 +418,7 @@ See also [`XPA.get`](@ref), [`XPA.get_message`](@ref).
 get_server(rep::Reply, i::Integer=1) = _string(_get_srv(rep, i))
 
 """
-```julia
-get_message(rep, i=1)
-```
+    XPA.get_message(rep, i=1)
 
 yields the message associated with the `i`-th reply in XPA answer `rep`.  An
 empty string is returned if there is no `i`-th reply.
@@ -438,9 +430,7 @@ See also [`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
 get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
 
 """
-```julia
-XPA.has_error(rep, i=1) -> boolean
-```
+    XPA.has_error(rep, i=1) -> boolean
 
 yields whether `i`-th XPA answer `rep` contains an error message.  The error
 message can be retrieved by calling `XPA.get_message(rep, i)`.
@@ -495,9 +485,7 @@ function Base.show(io::IO, rep::Reply)
 end
 
 """
-```julia
-XPA.has_errors(rep) -> boolean
-```
+    XPA.has_errors(rep) -> boolean
 
 yields whether answer `rep` contains any error messages.
 
@@ -514,9 +502,7 @@ function has_errors(rep::Reply) :: Bool
 end
 
 """
-```julia
-XPA.has_message(rep, i=1) -> boolean
-```
+    XPA.has_message(rep, i=1) -> boolean
 
 yields whether `i`-th XPA answer `rep` contains an error message.
 
@@ -542,10 +528,7 @@ function _startswith(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
 end
 
 """
-
-```julia
-verify(rep [, i]; throwerrors::Bool=false) -> boolean
-```
+    XPA.verify(rep [, i]; throwerrors::Bool=false) -> boolean
 
 verifies whether answer(s) in the result `rep` from an [`XPA.get`](@ref) or
 [`XPA.set`](@ref) request has no errors.  If index `i` is specified only that
@@ -578,9 +561,7 @@ function verify(rep::Reply, i::Integer; throwerrors::Bool=false)
 end
 
 """
-```julia
-get_data([T, [dims,]] rep, i=1; preserve=false)
-```
+    get_data([T, [dims,]] rep, i=1; preserve=false)
 
 yields the data associated with the `i`-th reply in XPA answer `rep`.  The
 returned value depends on the optional leading arguments `T` and `dims`:
@@ -712,15 +693,14 @@ _dimensions(dims::TupleOf{Int}) = dims
 _string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 
 """
-```julia
-XPA.set([xpa,] apt, args...; data=nothing) -> rep
-```
+    XPA.set([xpa,] apt, args...; data=nothing) -> rep
 
 sends `data` to one or more XPA access points identified by `apt` with
 arguments `args...` (automatically converted into a single string where the
 arguments are separated by a single space).  The result is an instance of
-[`XPA.Reply`](@ref).  Optional argument `xpa` specifies an XPA handle (created
-by [`XPA.Client`](@ref)) for faster connections.
+[`XPA.Reply`](@ref).  Optional argument `xpa` is a persistent XPA client
+connection (created by [`XPA.Client`](@ref)); if omitted, a per-thread
+connection is used (see [`XPA.connection`](@ref)).
 
 The following keywords are available:
 
@@ -780,9 +760,7 @@ function _set(xpa::Client, apt::AbstractString, params::AbstractString,
 end
 
 """
-```julia
-buf = buffer(data)
-```
+    buf = buffer(data)
 
 yields an object `buf` representing the contents of `data` and which can be
 used as an argument to `ccall` without the risk of having the data garbage

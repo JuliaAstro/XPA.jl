@@ -9,6 +9,7 @@ by the XPA package.  This information is also available from the REPL by typing
 
 ```@docs
 XPA.Client
+XPA.connection
 XPA.get
 XPA.Reply
 XPA.get_data

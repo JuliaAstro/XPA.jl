@@ -6,14 +6,16 @@ sending data to one or several XPA servers.
 
 ## Persistent client connection
 
-For each client request, XPA is able to automatically establish a temporary
-connection to the server.  This however implies some overheads and, to speed up
-the connection, a persistent XPA client can be created by calling
-[`XPA.Client()`](@ref) which returns an opaque object.  The
-connection is automatically shutdown and related resources freed when the
-client object is garbage collected.  The `close()` method can also by applied
-to the client object, in that case all subsequent requests with the object will
-establish a (slow) temporary connection.
+To avoid reconnecting to the XPA server for each client request, `XPA.jl`
+maintains a per-thread persistent connection to the server.  The end-user
+should therefore not have to worry about creating persistent XPA client
+connections (by calling [`XPA.Client()`](@ref)) for its application.
+
+Persistent XPA client connections are automatically shutdown and related
+resources freed when garbage collected.  The `close()` method can be applied to
+a persistent XPA client connection (if this is done for one of the memorized
+per-thread connection, the connection will be automatically re-open if
+necessary).
 
 
 ## Getting data from one or more servers
@@ -29,7 +31,7 @@ XPA.get([xpa,] apt, args...) -> rep
 which uses the client connection `xpa` to retrieve data from one or more XPA
 access points identified by `apt` as a result of the command build from
 arguments `args...`.  Argument `xpa` is optional, if it is not specified, a
-(slow) temporary connection is established.  The XPA access point `apt` is a
+per-thread persistent connection is used.  The XPA access point `apt` is a
 string which can be a template name, a `host:port` string or the name of a Unix
 socket file.
 

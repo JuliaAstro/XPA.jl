@@ -367,12 +367,12 @@ store!(buf::SendBuffer, val::Union{Symbol,AbstractString}) =
 
 store!(buf::SendBuffer, str::String) =
     store!(buf.bufptr, buf.lenptr,
-               Base.unsafe_convert(Ptr{Byte}, str), sizeof(str))
+           Base.unsafe_convert(Ptr{Byte}, str), sizeof(str))
 
 function store!(buf::SendBuffer, arr::DenseArray{T,N}) where {T, N}
     @assert isbitstype(T)
     store!(buf.bufptr, buf.lenptr,
-               convert(Ptr{Byte}, pointer(arr)), sizeof(arr))
+           convert(Ptr{Byte}, pointer(arr)), sizeof(arr))
 end
 
 function store!(buf::SendBuffer, val::T) where {T}

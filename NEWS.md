@@ -1,8 +1,33 @@
 # Changes in XPA package
 
+## Version 0.2.0
+
+### New functionalities and improvements
+
+- To avoid the delay for connecting to the XPA server, all XPA methods that
+  perform XPA client requests now automatically use a connection that is kept
+  open for the calling thread.  Directly calling `XPA.Client()` should be no
+  longer necessary.
+
+  ```julia
+  julia> using XPA, BenchmarkTools
+  julia> conn = XPA.Client() # create a persistent client connection
+  julia> temp = XPA.Client(C_NULL) # to force a new connection for each request
+  julia> @btime XPA.get($temp, "DS9:ds9", "version");
+    352.447 μs (3 allocations: 240 bytes)
+  julia> @btime XPA.get($conn, "DS9:ds9", "version");
+    222.088 μs (3 allocations: 240 bytes)
+  julia> @btime XPA.get(       "DS9:ds9", "version");
+    188.957 μs (3 allocations: 240 bytes)
+  ```
+
+
 ## Version 0.1.0
 
 ### New functionalities and improvements
+
+- `XPA.jl` now dependends on `XPA_jll` artifact to provide the XPA dynamic
+  library.  This requires Julia version ≥ 1.3.
 
 - New method `XPA.find` to retrieve the address of a specific server.
 
