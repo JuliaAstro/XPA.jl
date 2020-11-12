@@ -171,7 +171,7 @@ function find(xpa::Client,
             return lst[j]
         end
     end
-    throwerrors && error(_noserversmatch(ident))
+    throwerrors && throw_no_server_match(ident)
     return nothing
 end
 
@@ -187,15 +187,15 @@ function find(xpa::Client,
             return lst[j]
         end
     end
-    throwerrors && error(_noserversmatch(ident))
+    throwerrors && throw_no_server_match(ident)
     return nothing
 end
 
-@noinline _noserversmatch(ident::AbstractString) =
-    "no XPA servers match pattern \"$(ident)\""
+@noinline throw_no_servers_match(ident::AbstractString) =
+    error("no XPA servers match pattern \"$(ident)\"")
 
-@noinline _noserversmatch(ident::Regex) =
-    "no XPA servers match regular expression \"$(ident.pattern)\""
+@noinline throw_no_servers_match(ident::Regex) =
+     error("no XPA servers match regular expression \"$(ident.pattern)\"")
 
 """
     XPA.address(apt) -> addr
@@ -552,7 +552,7 @@ function verify(rep::Reply, i::Integer; throwerrors::Bool=false)
 end
 
 """
-    get_data([T, [dims,]] rep, i=1; preserve=false)
+    XPA.get_data([T, [dims,]] rep, i=1; preserve=false)
 
 yields the data associated with the `i`-th reply in XPA answer `rep`.  The
 returned value depends on the optional leading arguments `T` and `dims`:
@@ -581,9 +581,6 @@ See also [`XPA.get`](@ref), [`XPA.get_message`](@ref),
 """
 get_data(rep::Reply, args...; kwds...) =
     get_data(Vector{Byte}, rep, args...; kwds...)
-
-# FIXME: implement
-#   get_data(Vector{String}, rep, ...) to split in words
 
 function get_data(::Type{String}, rep::Reply, i::Integer=1;
                   preserve::Bool = true) :: String
@@ -751,7 +748,7 @@ function _set(xpa::Client, apt::AbstractString, params::AbstractString,
 end
 
 """
-    buf = buffer(data)
+    buf = XPA.buffer(data)
 
 yields an object `buf` representing the contents of `data` and which can be
 used as an argument to `ccall` without the risk of having the data garbage
