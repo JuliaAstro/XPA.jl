@@ -18,6 +18,7 @@ XPA.get_message
 XPA.has_error
 XPA.has_errors
 XPA.has_message
+XPA.join_arguments
 XPA.verify
 XPA.set
 XPA.buffer

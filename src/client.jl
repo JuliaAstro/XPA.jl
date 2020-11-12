@@ -269,18 +269,17 @@ function get(xpa::Client,
     return _get(xpa, apt, cmd, mode, _nmax(nmax), throwerrors)
 end
 
-get(xpa::Client, apt::AccessPoint, cmd::AbstractString; kwargs...) =
-    get(xpa, apt.addr, cmd; kwargs...)
+get(apt::AccessPoint, args...; kwds...) =
+    get(address(apt), args...; kwds...)
 
-function get(xpa::Client,
-             apt::AbstractString,
-             args::Union{AbstractString,Real}...;
-             kwds...)
-    return get(xpa, apt, _join(args); kwds...)
-end
+get(apt::AbstractString, args...; kwds...) =
+    get(connection(), apt, args...; kwds...)
 
-get(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
-    get(connection(), apt, _join(args); kwds...)
+get(xpa::Client, apt::AccessPoint, args...; kwds...) =
+    get(xpa, address(apt), args...; kwds...)
+
+get(xpa::Client, apt::AbstractString, args...; kwds...) =
+    get(xpa, apt, join_arguments(args); kwds...)
 
 _get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
 
@@ -373,17 +372,18 @@ function _get_buf(rep::Reply, i::Int, preserve::Bool) :: Tuple{Ptr{Byte},Int}
 end
 
 """
+    XPA.join_arguments(args)
 
-Private method `_join(tup)` joins a tuple of strings or reals into a single
-string.  It is implemented so as to be faster than `join(tup, " ")` when `tup`
-has less than 2 arguments.  It is intended to build XPA command string from
-arguments.
+joins a tuple of arguments into a single string where arguments are separated
+by a single space.  It is implemented so as to be faster than `join(args, " ")`
+when `args` has less than 2 arguments.  It is intended to build XPA command
+string from arguments.
 
 """
-_join(args::TupleOf{Union{AbstractString,Real}}) = join(args, " ")
-_join(args::Tuple{AbstractString}) = args[1]
-_join(args::Tuple{Real}) = string(args[1])
-_join(::Tuple{}) = ""
+join_arguments(args::Tuple) = join(args, " ")
+join_arguments(args::Tuple{AbstractString}) = args[1]
+join_arguments(args::Tuple{Any}) = string(args[1])
+join_arguments(::Tuple{}) = ""
 
 """
 
@@ -722,11 +722,11 @@ function set(xpa::Client,
              apt::AbstractString,
              args::Union{AbstractString,Real}...;
              kwds...)
-    return _set(xpa, apt, _join(args); kwds...)
+    return _set(xpa, apt, join_arguments(args); kwds...)
 end
 
 set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
-    set(connection(), apt, _join(args); kwds...)
+    set(connection(), apt, join_arguments(args); kwds...)
 
 function _set(xpa::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, data::Union{NullBuffer,DenseArray},
