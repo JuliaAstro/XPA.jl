@@ -446,29 +446,35 @@ function Base.show(io::IO, rep::Reply)
         for i in 1:n
             # Check whether all bytes in the data buffer are printable ASCII
             # characters.
-            ptr, len = _get_buf(rep, i, true)
-            cstring = true
-            for j in 1:len
-                b = unsafe_load(ptr, j)
-                if (b & 0x80) != 0
-                    # Not ASCII.
-                    cstring = false
-                    break
-                end
-                c = Char(b)
-                if !(isprint(c) || c == '\n' || c == '\r' || c == '\t')
-                    # Not Printable.
-                    cstring = false
-                    break
-                end
-            end
             print(io, "  ", i, ": server = ",
                   repr(get_server(rep, i); context=io), ", message = ",
                   repr(get_message(rep, i); context=io), ", data = ")
-            if cstring
-                print(io, repr(unsafe_string(ptr, len);  context=io))
+            ptr, len = _get_buf(rep, i, true)
+            if ptr == C_NULL
+                print(io, "NULL")
+            elseif len == 0
+                print(io, repr("";  context=io))
             else
-                print(io, len, (len > 1 ? " bytes" : " byte"))
+                cstring = true
+                for j in 1:len
+                    b = unsafe_load(ptr, j)
+                    if (b & 0x80) != 0
+                        # Not ASCII.
+                        cstring = false
+                        break
+                    end
+                    c = Char(b)
+                    if !(isprint(c) || c == '\n' || c == '\r' || c == '\t')
+                        # Not Printable.
+                        cstring = false
+                        break
+                    end
+                end
+                if cstring
+                    print(io, repr(unsafe_string(ptr, len);  context=io))
+                else
+                    print(io, len, (len > 1 ? " bytes" : " byte"))
+                end
             end
             i < n && print(io, "\n")
         end
