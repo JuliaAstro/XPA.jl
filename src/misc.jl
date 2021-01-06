@@ -131,8 +131,8 @@ function _set_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, val) where {T}
 end
 
 let T = CDefs.XPARec, off = fieldoffset(T, Base.fieldindex(T, :comm, true))
-    @eval _get_comm(xpa::Handle) =
-        _get_field(Ptr{Cvoid}, xpa.ptr, $off, C_NULL)
+    @eval _get_comm(conn::Handle) =
+        _get_field(Ptr{Cvoid}, conn.ptr, $off, C_NULL)
 end
 
 for (func, memb, defval) in ((:get_name,      :name,         ""),
@@ -152,7 +152,7 @@ for (func, memb, defval) in ((:get_name,      :name,         ""),
         typ = fieldtype(T, idx)
         def = convert(typ, defval)
     end
-    @eval $func(xpa::Handle) = _get_field($typ, xpa.ptr, $off, $def)
+    @eval $func(conn::Handle) = _get_field($typ, conn.ptr, $off, $def)
 end
 
 for (func, memb, defval) in ((:get_comm_status,  :status,   0),
@@ -173,10 +173,10 @@ for (func, memb, defval) in ((:get_comm_status,  :status,   0),
         typ = fieldtype(T, idx)
         def = convert(typ, defval)
     end
-    @eval $func(xpa::Handle) = _get_field($typ, _get_comm(xpa), $off, $def)
+    @eval $func(conn::Handle) = _get_field($typ, _get_comm(conn), $off, $def)
     if memb == :buf || memb == :len
-        @eval $(Symbol(:_set_comm_, memb))(xpa::Handle, val) =
-            unsafe_store!(convert(Ptr{$typ}, _get_comm(xpa) + $off), val)
+        @eval $(Symbol(:_set_comm_, memb))(conn::Handle, val) =
+            unsafe_store!(convert(Ptr{$typ}, _get_comm(conn) + $off), val)
     end
 end
 

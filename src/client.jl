@@ -65,28 +65,28 @@ function _open()
     return ptr
 end
 
-function Base.close(xpa::Client)
-    if (ptr = xpa.ptr) != C_NULL
-        xpa.ptr = C_NULL # avoid closing more than once!
+function Base.close(conn::Client)
+    if (ptr = conn.ptr) != C_NULL
+        conn.ptr = C_NULL # avoid closing more than once!
         ccall((:XPAClose, libxpa), Cvoid, (Ptr{Cvoid},), ptr)
     end
     return nothing
 end
 
 """
-    XPA.list(xpa=XPA.connection())
+    XPA.list(conn=XPA.connection())
 
 yields a list of available XPA access points.  The result is a vector of
-[`XPA.AccessPoint`](@ref) instances.  Optional argument `xpa` is a persistent
+[`XPA.AccessPoint`](@ref) instances.  Optional argument `conn` is a persistent
 XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a
 per-thread connection is used (see [`XPA.connection`](@ref)).
 
 See also [`XPA.Client`](@ref), [`XPA.connection`](@ref) and [`XPA.find`](@ref).
 
 """
-function list(xpa::Client = connection())
+function list(conn::Client = connection())
     lst = AccessPoint[]
-    for str in split(chomp(get(String, xpa, "xpans")), r"\n|\r\n?";
+    for str in split(chomp(get(String, conn, "xpans")), r"\n|\r\n?";
                      keepempty=false)
         arr = split(str; keepempty=false)
         if length(arr) != 5
@@ -112,7 +112,7 @@ function list(xpa::Client = connection())
 end
 
 """
-    XPA.find([xpa=XPA.connection(),] ident) -> apt
+    XPA.find([conn=XPA.connection(),] ident) -> apt
 
 yields the accesspoint of the first XPA server matching `ident` or `nothing` if
 none is found.  If a match is found, the result `apt` is an instance of
@@ -130,7 +130,7 @@ Argument `ident` may be a regular expression or a string of the
 form `CLASS:NAME` where `CLASS` and `CLASS` are matched against the server
 class and name respectively (they may be `"*"` to match any).
 
-Optional argument `xpa` is a persistent XPA client connection (created by
+Optional argument `conn` is a persistent XPA client connection (created by
 [`XPA.Client`](@ref)); if omitted, a per-thread connection is used (see
 [`XPA.connection`](@ref)).
 
@@ -147,7 +147,7 @@ See also [`XPA.Client`](@ref), [`XPA.address`](@ref) and [`XPA.list`](@ref).
 find(ident::Union{AbstractString,Regex}; kwds...) =
     find(connection(), ident; kwds...)
 
-function find(xpa::Client,
+function find(conn::Client,
               ident::AbstractString;
               user::AbstractString = "*",
               throwerrors::Bool = false)::Union{AccessPoint,Nothing}
@@ -163,7 +163,7 @@ function find(xpa::Client,
     anyuser = (user == "*")
     anyclass = (class == "*")
     anyname = (name == "*")
-    lst = list(xpa)
+    lst = list(conn)
     for j in eachindex(lst)
         if ((anyuser || lst[j].user == user) &&
             (anyclass || lst[j].class == class) &&
@@ -175,12 +175,12 @@ function find(xpa::Client,
     return nothing
 end
 
-function find(xpa::Client,
+function find(conn::Client,
               ident::Regex;
               user::AbstractString = "*",
               throwerrors::Bool = false)::Union{AccessPoint,Nothing}
     anyuser = (user == "*")
-    lst = list(xpa)
+    lst = list(conn)
     for j in eachindex(lst)
         if ((anyuser || lst[j].user == user) &&
             occursin(ident, lst[j].class*":"*lst[j].name))
@@ -220,12 +220,12 @@ function address(apt::AbstractString)
 end
 
 """
-    XPA.get([T, [dims,]] [xpa,] apt, args...)
+    XPA.get([T, [dims,]] [conn,] apt, args...)
 
 retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
 arguments `args...` (automatically converted into a single string where the
-arguments are separated by a single space).  Optional argument `xpa` is a
+arguments are separated by a single space).  Optional argument `conn` is a
 persistent XPA client connection (created by [`XPA.Client`](@ref)); if omitted,
 a per-thread connection is used (see [`XPA.connection`](@ref)).  The returned
 value depends on the optional arguments `T` and `dims`.
@@ -260,13 +260,13 @@ See also [`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref) and
 [`XPA.verify`](@ref).
 
 """
-function get(xpa::Client,
+function get(conn::Client,
              apt::AbstractString,
              cmd::AbstractString;
              mode::AbstractString = "",
              nmax::Integer = 1,
              throwerrors::Bool = false)
-    return _get(xpa, apt, cmd, mode, _nmax(nmax), throwerrors)
+    return _get(conn, apt, cmd, mode, _nmax(nmax), throwerrors)
 end
 
 get(apt::AccessPoint, args...; kwds...) =
@@ -275,11 +275,11 @@ get(apt::AccessPoint, args...; kwds...) =
 get(apt::AbstractString, args...; kwds...) =
     get(connection(), apt, args...; kwds...)
 
-get(xpa::Client, apt::AccessPoint, args...; kwds...) =
-    get(xpa, address(apt), args...; kwds...)
+get(conn::Client, apt::AccessPoint, args...; kwds...) =
+    get(conn, address(apt), args...; kwds...)
 
-get(xpa::Client, apt::AbstractString, args...; kwds...) =
-    get(xpa, apt, join_arguments(args); kwds...)
+get(conn::Client, apt::AbstractString, args...; kwds...) =
+    get(conn, apt, join_arguments(args); kwds...)
 
 _get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
 
@@ -312,7 +312,7 @@ function get(::Type{String}, args...; kwds...)
     return get_data(String, _get1(args...; kwds...))
 end
 
-function _get(xpa::Client, apt::AbstractString, params::AbstractString,
+function _get(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, nmax::Int, throwerrors::Bool)
     lengths = fill!(Vector{Csize_t}(undef, nmax), 0)
     buffers = fill!(Vector{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
@@ -321,7 +321,7 @@ function _get(xpa::Client, apt::AbstractString, params::AbstractString,
     replies = ccall((:XPAGet, libxpa), Cint,
                     (Client, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
                      Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-                    xpa, apt, params, mode, address, lengths,
+                    conn, apt, params, mode, address, lengths,
                     address + offset, address + 2*offset, nmax)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPAGet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
@@ -687,12 +687,12 @@ _dimensions(dims::TupleOf{Int}) = dims
 _string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 
 """
-    XPA.set([xpa,] apt, args...; data=nothing) -> rep
+    XPA.set([conn,] apt, args...; data=nothing) -> rep
 
 sends `data` to one or more XPA access points identified by `apt` with
 arguments `args...` (automatically converted into a single string where the
 arguments are separated by a single space).  The result is an instance of
-[`XPA.Reply`](@ref).  Optional argument `xpa` is a persistent XPA client
+[`XPA.Reply`](@ref).  Optional argument `conn` is a persistent XPA client
 connection (created by [`XPA.Client`](@ref)); if omitted, a per-thread
 connection is used (see [`XPA.connection`](@ref)).
 
@@ -714,27 +714,27 @@ The following keywords are available:
 See also [`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
 
 """
-function set(xpa::Client,
+function set(conn::Client,
              apt::AbstractString,
              cmd::AbstractString;
              data = nothing,
              mode::AbstractString = "",
              nmax::Integer = 1,
              throwerrors::Bool = false)
-    return _set(xpa, apt, cmd, mode, buffer(data), _nmax(nmax), throwerrors)
+    return _set(conn, apt, cmd, mode, buffer(data), _nmax(nmax), throwerrors)
 end
 
-function set(xpa::Client,
+function set(conn::Client,
              apt::AbstractString,
              args::Union{AbstractString,Real}...;
              kwds...)
-    return _set(xpa, apt, join_arguments(args); kwds...)
+    return _set(conn, apt, join_arguments(args); kwds...)
 end
 
 set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
     set(connection(), apt, join_arguments(args); kwds...)
 
-function _set(xpa::Client, apt::AbstractString, params::AbstractString,
+function _set(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, data::Union{NullBuffer,DenseArray},
               nmax::Int, throwerrors::Bool)
 
@@ -745,7 +745,7 @@ function _set(xpa::Client, apt::AbstractString, params::AbstractString,
     replies = ccall((:XPASet, libxpa), Cint,
               (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
                Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-              xpa, apt, params, mode, data, sizeof(data),
+              conn, apt, params, mode, data, sizeof(data),
               address + offset, address + 2*offset, nmax)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPASet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))

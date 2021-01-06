@@ -40,7 +40,7 @@ abstract type Handle end
 
 # All concrete types derived from `Handle` have a `ptr` field which is NULL if
 # handle has been closed (or not yet open).
-Base.isopen(xpa::Handle) = xpa.ptr != C_NULL
+Base.isopen(conn::Handle) = conn.ptr != C_NULL
 
 """
 
