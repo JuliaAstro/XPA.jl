@@ -171,7 +171,7 @@ function find(conn::Client,
             return lst[j]
         end
     end
-    throwerrors && throw_no_server_match(ident)
+    throwerrors && throw_no_servers_match(ident)
     return nothing
 end
 
@@ -187,7 +187,7 @@ function find(conn::Client,
             return lst[j]
         end
     end
-    throwerrors && throw_no_server_match(ident)
+    throwerrors && throw_no_servers_match(ident)
     return nothing
 end
 
@@ -220,7 +220,7 @@ function address(apt::AbstractString)
 end
 
 """
-    XPA.get([T, [dims,]] [conn,] apt, args...)
+    XPA.get([T, [dims,]] [conn,] apt, args...; kwds...)
 
 retrieves data from one or more XPA access points identified by `apt` (a
 template name, a `host:port` string or the name of a Unix socket file) with
@@ -242,6 +242,14 @@ are available:
   in the list of answers.  By default, `throwerrors` is false.
 
 * Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
+
+* Keyword `users` specifies the list of possible users owning the access-point.
+  This (temporarily) overrides the settings in environment variable
+  `XPA_NSUSERS`.  By default and if the environment variable `XPA_NSUSERS` is
+  not set, the access-point must be owned the caller (see Section
+  *Distinguishing Users* in XPA documentation).  The value is a string wich may
+  be a list of comma separated user names or `"*"` to access all users on a
+  given machine.
 
 If `T` and, possibly, `dims` are specified, a single answer and no errors are
 expected (as if `nmax=1` and `throwerrors=true`) and the data part of the
@@ -265,8 +273,9 @@ function get(conn::Client,
              cmd::AbstractString;
              mode::AbstractString = "",
              nmax::Integer = 1,
-             throwerrors::Bool = false)
-    return _get(conn, apt, cmd, mode, _nmax(nmax), throwerrors)
+             throwerrors::Bool = false,
+             users::Union{Nothing,AbstractString} = nothing)
+    return _get(conn, apt, cmd, mode, _nmax(nmax), throwerrors, users)
 end
 
 get(apt::AccessPoint, args...; kwds...) =
@@ -313,20 +322,42 @@ function get(::Type{String}, args...; kwds...)
 end
 
 function _get(conn::Client, apt::AbstractString, params::AbstractString,
-              mode::AbstractString, nmax::Int, throwerrors::Bool)
+              mode::AbstractString, nmax::Int, throwerrors::Bool,
+              users::Union{Nothing,AbstractString})
     lengths = fill!(Vector{Csize_t}(undef, nmax), 0)
     buffers = fill!(Vector{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
+    prevusers = _override_nsusers(users)
     replies = ccall((:XPAGet, libxpa), Cint,
                     (Client, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
                      Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
                     conn, apt, params, mode, address, lengths,
                     address + offset, address + 2*offset, nmax)
+    _restore_nsusers(prevusers)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPAGet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
     throwerrors && verify(rep; throwerrors=true)
     return rep
+end
+
+# Override environment variable XPA_NSUSERS.
+_override_nsusers(::Nothing) = nothing
+_override_nsusers(users::AbstractString) = begin
+    prev = Base.get(ENV, "XPA_NSUSERS", "")
+    ENV["XPA_NSUSERS"] = users
+    return prev
+end
+
+# Restore environment variable XPA_NSUSERS.
+_restore_nsusers(::Nothing) = nothing
+_restore_nsusers(users::AbstractString) = begin
+    if users == ""
+        delete!(ENV, "XPA_NSUSERS")
+    else
+        ENV["XPA_NSUSERS"] = users
+    end
+    nothing
 end
 
 function _free(rep::Reply)
@@ -687,7 +718,7 @@ _dimensions(dims::TupleOf{Int}) = dims
 _string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 
 """
-    XPA.set([conn,] apt, args...; data=nothing) -> rep
+    XPA.set([conn,] apt, args...; data=nothing, kwds...) -> rep
 
 sends `data` to one or more XPA access points identified by `apt` with
 arguments `args...` (automatically converted into a single string where the
@@ -698,18 +729,26 @@ connection is used (see [`XPA.connection`](@ref)).
 
 The following keywords are available:
 
-* `data` specifies the data to send, may be `nothing`, an array or a string.
-  If it is an array, it must have contiguous elements (as a for a *dense*
-  array) and must implement the `pointer` method.
+* Keyword `data` specifies the data to send, may be `nothing`, an array or a
+  string.  If it is an array, it must have contiguous elements (as a for a
+  *dense* array) and must implement the `pointer` method.
 
-* `nmax` specifies the maximum number of recipients, `nmax=1` by default.
-  Specify `nmax=-1` to use the maximum possible number of XPA hosts.
+* Keyword `nmax` specifies the maximum number of recipients, `nmax=1` by
+  default.  Specify `nmax=-1` to use the maximum possible number of XPA hosts.
 
-* `mode` specifies options in the form `"key1=value1,key2=value2"`.
+* Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
-* `throwerrors` specifies whether to check for errors.  If this keyword is set
-  `true`, an exception is thrown for the first error message encountered in the
-  list of answers.  By default, `throwerrors` is false.
+* Keyword `throwerrors` specifies whether to check for errors.  If this keyword
+  is set `true`, an exception is thrown for the first error message encountered
+  in the list of answers.  By default, `throwerrors` is false.
+
+* Keyword `users` specifies the list of possible users owning the access-point.
+  This (temporarily) overrides the settings in environment variable
+  `XPA_NSUSERS`.  By default and if the environment variable `XPA_NSUSERS` is
+  not set, the access-point must be owned the caller (see Section
+  *Distinguishing Users* in XPA documentation).  The value is a string wich may
+  be a list of comma separated user names or `"*"` to access all users on a
+  given machine.
 
 See also [`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
 
@@ -720,8 +759,10 @@ function set(conn::Client,
              data = nothing,
              mode::AbstractString = "",
              nmax::Integer = 1,
-             throwerrors::Bool = false)
-    return _set(conn, apt, cmd, mode, buffer(data), _nmax(nmax), throwerrors)
+             throwerrors::Bool = false,
+             users::Union{Nothing,AbstractString} = nothing)
+    return _set(conn, apt, cmd, mode, buffer(data), _nmax(nmax),
+                throwerrors, users)
 end
 
 function set(conn::Client,
@@ -736,17 +777,19 @@ set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
 
 function _set(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, data::Union{NullBuffer,DenseArray},
-              nmax::Int, throwerrors::Bool)
-
+              nmax::Int, throwerrors::Bool,
+              users::Union{Nothing,AbstractString})
     lengths = fill!(Vector{Csize_t}(undef, nmax), 0)
     buffers = fill!(Vector{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
+    prevusers = _override_nsusers(users)
     replies = ccall((:XPASet, libxpa), Cint,
               (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
                Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
               conn, apt, params, mode, data, sizeof(data),
-              address + offset, address + 2*offset, nmax)
+                    address + offset, address + 2*offset, nmax)
+    _restore_nsusers(prevusers)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPASet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
     throwerrors && verify(rep; throwerrors=true)
