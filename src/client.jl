@@ -303,7 +303,7 @@ function get(::Type{Vector{T}}, dim::Integer,
 end
 
 function get(::Type{Array{T}}, dim::Integer,
-             args...; kwds...) :: Array{T,N} where {T,N}
+             args...; kwds...) :: Array{T} where {T}
     get_data(Vector{T}, dim, _get1(args...; kwds...))
 end
 
