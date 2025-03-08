@@ -1,5 +1,15 @@
 # Changes in XPA package
 
+## Version 0.2.2
+
+- Remove unused type parameter. Stop newer julia from complaining.
+
+## Version 0.2.1
+
+- Fix typo in function name.
+- Rename `xpa` variables as `conn` for clarity.
+- Fix issue with `NULL` data buffer.
+
 ## Version 0.2.0
 
 ### New functionalities and improvements
