@@ -1,22 +1,20 @@
-using Documenter
-
-push!(LOAD_PATH, "../src/")
 using XPA
+using Documenter
+using Documenter.Remotes: GitHub
 
-DEPLOYDOCS = (get(ENV, "CI", nothing) == "true")
+include("pages.jl")
 
-makedocs(
-    sitename = "XPA.jl Package",
-    format = Documenter.HTML(
-        prettyurls = DEPLOYDOCS,
-    ),
+makedocs(;
+    modules = [XPA],
+    sitename = "XPA.jl",
+    repo = GitHub("JuliaAstro/XPA.jl"),
+    format = Documenter.HTML(),
     authors = "Éric Thiébaut and contributors",
-    pages = ["index.md", "install.md", "intro.md",
-             "client.md", "server.md", "misc.md", "library.md"]
+    pages,
+    doctest = true,
 )
 
-if DEPLOYDOCS
-    deploydocs(
-        repo = "github.com/JuliaAstro/XPA.jl.git",
-    )
-end
+deploydocs(
+    repo = "github.com/JuliaAstro/XPA.jl.git",
+    push_preview = true,
+)
