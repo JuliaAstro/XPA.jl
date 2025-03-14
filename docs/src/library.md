@@ -56,3 +56,9 @@ XPA.setconfig!
 XPA.SUCCESS
 XPA.FAILURE
 ```
+
+## Index
+
+```@index
+Pages = ["library.md"]
+```
