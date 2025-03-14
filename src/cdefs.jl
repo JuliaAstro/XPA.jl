@@ -23,50 +23,125 @@ const XPA_CMDS = 4
 # CALLBACK FUNCTIONS
 #
 
-# typedef int (*SendCb)(void *client_data, void *call_data, char *paramlist,
-#                       char **buf, size_t *len);
+"""
+    SendCb
+
+Wrapper around XPA's `SendCb` type:
+```c
+typedef int (*SendCb)(void *client_data, void *call_data, char *paramlist,
+                      char **buf, size_t *len);
+```
+"""
 struct SendCb end
 
-# typedef int (*ReceiveCb)(void *client_data, void *call_data,
-#                          char *paramlist, char *buf, size_t len );
+"""
+    ReceiveCb
+
+Wrapper around XPA's `ReceiveCb` type:
+```c
+typedef int (*ReceiveCb)(void *client_data, void *call_data,
+                         char *paramlist, char *buf, size_t len);
+```
+"""
 struct ReceiveCb end
 
-# typedef int (*InfoCb)(void *client_data, void *call_data,
-#                       char *paramlist);
+"""
+    InfoCb
+
+Wrapper around XPA's `InfoCb` type:
+```c
+typedef int (*InfoCb)(void *client_data, void *call_data, char *paramlist);
+```
+"""
 struct InfoCb end
 
-# typedef void *(*SelAdd)(void *client_data, int fd);
+"""
+    abstract type SelAdd
+
+Wrapper around XPA's `SelAdd` type:
+```c
+typedef void *(*SelAdd)(void *client_data, int fd);
+```
+"""
 abstract type SelAdd end
 
-# typedef void (*SelDel)(void *client_data);
+"""
+    abstract type SelDel
+
+Wrapper around XPA's `SelDel` type:
+```c
+typedef void (*SelDel)(void *client_data);
+```
+"""
 abstract type SelDel end
 
-# typedef void (*SelOn)(void *client_data);
+"""
+    abstract type SelOn
+
+Wrapper around XPA's `SelOn` type:
+```c
+typedef void (*SelOn)(void *client_data);
+```
+"""
 abstract type SelOn end
 
-# typedef void  (*SelOff)(void *client_data);
+"""
+    abstract type SelOff
+
+Wrapper around XPA's `SelOff` type:
+```c
+typedef void (*SelOff)(void *client_data);
+```
+"""
 abstract type SelOff end
 
-# typedef void (*MyFree)(void *buf);
+"""
+    MyFree
+
+Wrapper around XPA's `MyFree` type:
+```c
+typedef void (*MyFree)(void *buf);
+```
+"""
 struct MyFree end
 
 #
 # OPAQUE STRUCTURES
 #
 
-# Opaque structure for `struct nsrec`.
+"""
+    abstract type NSRec
+
+Opaque structure for `struct nsrec`.
+"""
 abstract type NSRec end
 
-# Opaque structure for `struct cliprec`.
+"""
+    abstract type ClipRec
+
+Opaque structure for `struct cliprec`.
+"""
 abstract type ClipRec end
 
-# Opaque structure for `struct xpainputrec`.
+"""
+    abstract type XPAInputRec
+
+Opaque structure for `struct xpainputrec`.
+"""
 abstract type XPAInputRec end
 
-# Opaque structure for `struct xpaclientrec`.
+"""
+    abstract type XPAClientRec
+
+Opaque structure for `struct xpaclientrec`.
+"""
 abstract type XPAClientRec end
 
-# Opaque structure for `struct xpacmdrec`.
+"""
+    abstract type XPACmdRec
+
+Opaque structure for `struct xpacmdrec`.
+"""
 abstract type XPACmdRec end
 
 #
