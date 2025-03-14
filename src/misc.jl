@@ -101,7 +101,7 @@ respect to which the second is applied.  If `ptr` is NULL, `default` is returned
 _get_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, def::T) where {T} =
     (ptr == C_NULL ? def : unsafe_load(convert(Ptr{T}, ptr + off)))
 
-_get_field(::Type{String}, ptr::Ptr{Cvoid}, off::UInt, def::String) = begin
+function _get_field(::Type{String}, ptr::Ptr{Cvoid}, off::UInt, def::String)
     ptr == C_NULL && return def
     buf = unsafe_load(convert(Ptr{Ptr{Byte}}, ptr + off))
     buf == C_NULL && return def
