@@ -22,6 +22,12 @@ using XPA
 const xpa = XPA
 ```
 
+or (in Julia 1.6 and higher),
+
+```julia
+import XPA as xpa
+```
+
 The implemented methods are described in what follows, first the client side,
 then the server side and finally some utilities.  More extensive XPA
 documentation can be found [here](http://hea-www.harvard.edu/RD/xpa/help.html).
