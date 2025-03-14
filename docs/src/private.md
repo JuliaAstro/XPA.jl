@@ -10,13 +10,11 @@ not part of the public API, the page is hidden from the site navigation.
 ## Types
 
 ```@docs
-XPA.Buffer
 XPA.SendBuffer
 XPA.ReceiveBuffer
 XPA.NullBuffer
 
 XPA.Handle
-XPA.Callback
 
 XPA.TupleOf
 ```
@@ -48,7 +46,6 @@ XPA.CDefs.ReceiveCb
 XPA.CDefs.MyFree
 XPA.CDefs.InfoCb
 
-XPA.CDefs.XPARec
 XPA.CDefs.XPACommRec
 XPA.CDefs.NSRec
 XPA.CDefs.ClipRec
