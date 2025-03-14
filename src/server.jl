@@ -27,7 +27,7 @@ Argument `help` is a string which is meant to be returned by a help request
 from `xpaget`:
 
 ```sh
-xpaget class:name -help
+\$ xpaget class:name -help
 ```
 
 Arguments `send` and `recv` are callbacks which will be called upon a client
