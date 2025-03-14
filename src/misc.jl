@@ -169,17 +169,17 @@ for (func, memb, defval) in ((:get_comm_status,  :status,   0),
 end
 
 """
-```julia
-_malloc(len)
-```
+    _malloc(size)
 
-dynamically allocates `len` bytes and returns the corresponding byte pointer
+Dynamically allocates `size` bytes and returns the corresponding byte pointer
 (type `Ptr{UInt8}`).
 
+!!! note
+    This is just a wrapper around `Libc.malloc` that does null-checking.
 """
 function _malloc(len::Integer) :: Ptr{Byte}
-    ptr = ccall(:malloc, Ptr{Byte}, (Csize_t,), len)
-    ptr != NULL || throw(OutOfMemoryError())
+    ptr = Libc.malloc(len)
+    ptr == NULL && throw(OutOfMemoryError())
     return ptr
 end
 
@@ -188,9 +188,10 @@ end
 
 Frees dynamically allocated memory at address given by `ptr` unless it is NULL.
 
+!!! note
+    This is just a wrapper around `Libc.free` that does avoids freeing NULL pointers.
 """
-_free(ptr::Ptr{T}) where T =
-    (ptr == Ptr{T}(0) || ccall(:free, Cvoid, (Ptr{T},), ptr))
+_free(ptr::Ptr{T}) where T = (ptr == C_NULL || Libc.free(ptr))
 
 """
     _memcpy!(dst, src, len) -> dst
