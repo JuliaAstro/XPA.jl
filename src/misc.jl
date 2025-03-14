@@ -114,7 +114,9 @@ function _get_field(::Type{T}, ptr::Ptr{Cvoid}, off1::UInt, off2::UInt,
 end
 
 function _set_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, val) where {T}
-    @assert ptr != C_NULL
+    if ptr == C_NULL
+        error("Cannot assign value to null pointer.")
+    end
     unsafe_store!(convert(Ptr{T}, ptr + off), val)
 end
 

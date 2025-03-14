@@ -143,7 +143,15 @@ struct ReceiveBuffer
     len::Int
     # Inner constructor that checks parameters at construction time.
     function ReceiveBuffer(ptr::Ptr{Byte}, len::Integer)
-        @assert ptr == NULL ? len == 0 : len ≥ 0
+        if ptr == NULL
+            if len != 0
+                error("Non-zero `len` (= $len) passed with NULL `ptr`.")
+            end
+        else
+            if len < 0
+                error("Negative `len` (= $len) passed.")
+            end
+        end
         return new(ptr, len)
     end
 end
