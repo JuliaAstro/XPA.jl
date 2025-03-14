@@ -135,9 +135,8 @@ callbacks to record the address and the size of the data sent by an
 [`XPA.set`](@ref) request.  Methods `pointer(buf)` and `sizeof(buf)` can be
 used to query the address and the number of bytes of the buffer `buf`.
 
-See also [`XPA.get`](@ref), [`XPA.Server`](@ref) and
-[`XPA.ReceiveCallback`](@ref).
-
+# See also
+[`XPA.get`](@ref), [`XPA.Server`](@ref), and [`XPA.ReceiveCallback`](@ref).
 """
 struct ReceiveBuffer
     ptr::Ptr{Byte}
