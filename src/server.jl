@@ -276,9 +276,7 @@ function __init__()
 end
 
 """
-```julia
-error(srv, msg) -> XPA.FAILURE
-```
+    error(srv, msg) -> XPA.FAILURE
 
 communicates error message `msg` to the client when serving a request by XPA
 server `srv`.  This method shall only be used by the send/receive callbacks of
@@ -296,9 +294,7 @@ function Base.error(srv::Server, msg::AbstractString)
 end
 
 """
-```julia
-XPA.message(srv, msg)
-```
+    XPA.message(srv, msg)
 
 sets a specific acknowledgment message back to the client. Argument `srv` is
 the XPA server serving the client and `msg` is the acknowledgment message.
@@ -312,15 +308,8 @@ message(srv::Server, msg::AbstractString) =
     ccall((:XPAMessage, libxpa), Cint, (Server, Cstring), srv, msg)
 
 """
-```julia
-XPA.store!(buf, data)
-```
-
-or
-
-```julia
-XPA.store!(buf, ptr, len)
-```
+    XPA.store!(buf, data)
+    XPA.store!(buf, ptr, len)
 
 store into the send buffer `buf` a dynamically allocated copy of the contents
 of `data` or of the `len` bytes at address `ptr`.
@@ -401,9 +390,7 @@ end
 
 
 """
-```julia
-XPA.peek(T, buf, i=1) -> val
-```
+    XPA.peek(T, buf, i=1) -> val
 
 yields the `i`-th binary value of type `T` stored into receive buffer `buf`.
 Bounds checking is performed unless `@inbounds` is active.
@@ -505,9 +492,7 @@ function peek(::Type{Array{T,N}},
 end
 
 """
-```julia
-XPA.poll(sec, maxreq)
-```
+    XPA.poll(sec, maxreq)
 
 polls for XPA events.  This method is meant to implement a polling event loop
 which checks for and processes XPA requests without blocking.
@@ -575,9 +560,7 @@ poll(sec::Real, maxreq::Integer) =
           (sec < 0 ? -1 : round(Cint, 1E3*sec)), maxreq)
 
 """
-```julia
-XPA.mainloop()
-```
+    XPA.mainloop()
 
 runs XPA event loop which handles the requests sent to the server(s) created by
 this process.  The loop runs until all servers created by this process have

@@ -73,7 +73,11 @@ abstract type XPACmdRec end
 # EXPORTED STRUCTURES
 #
 
-# XPA communication structure for each connection.
+"""
+    XPACommRec
+
+XPA communication structure for each connection.
+"""
 struct XPACommRec
     next::Ptr{XPACommRec}
     status::Cint
