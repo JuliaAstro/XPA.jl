@@ -26,9 +26,8 @@ exchanges with a given access point.
     open for the calling thread.  Directly calling `XPA.Client()` should be
     unnecessary, this method is kept for backward compatibility.
 
-See also [`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref) and
-[`XPA.find`](@ref).
-
+# See also
+[`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref), and [`XPA.find`](@ref).
 """
 Client() = Client(_open())
 
@@ -78,8 +77,8 @@ yields a list of available XPA access points.  The result is a vector of
 XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a
 per-thread connection is used (see [`XPA.connection`](@ref)).
 
-See also [`XPA.Client`](@ref), [`XPA.connection`](@ref) and [`XPA.find`](@ref).
-
+# See also
+[`XPA.Client`](@ref), [`XPA.connection`](@ref) and [`XPA.find`](@ref).
 """
 function list(conn::Client = connection())
     lst = AccessPoint[]
@@ -138,8 +137,8 @@ is `user="*"` which matches any user.
 Keyword `throwerrors` may be set true (it is false by default) to automatically
 throw an exception if no match is found (instead of returning `nothing`).
 
-See also [`XPA.Client`](@ref), [`XPA.address`](@ref) and [`XPA.list`](@ref).
-
+# See also
+[`XPA.Client`](@ref), [`XPA.address`](@ref) and [`XPA.list`](@ref).
 """
 find(ident::Union{AbstractString,Regex}; kwds...) =
     find(connection(), ident; kwds...)
@@ -261,7 +260,8 @@ an optional list of dimensions:
   `Array{S,N}` and `dims` a list of `N` dimensions to retrieve the data as an
   array of type `Array{S,N}`.
 
-See also [`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref) and
+# See also
+[`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref) and
 [`XPA.verify`](@ref).
 """
 function get(conn::Client,
@@ -432,8 +432,8 @@ _nmax(rep::Reply) = length(rep.lengths)
 yields the XPA identifier of the server which sent the `i`-th reply in XPA
 answer `rep`.  An empty string is returned if there is no `i`-th reply.
 
-See also [`XPA.get`](@ref), [`XPA.get_message`](@ref).
-
+# See also
+[`XPA.get`](@ref), [`XPA.get_message`](@ref).
 """
 get_server(rep::Reply, i::Integer=1) = _string(_get_srv(rep, i))
 
@@ -443,7 +443,8 @@ get_server(rep::Reply, i::Integer=1) = _string(_get_srv(rep, i))
 yields the message associated with the `i`-th reply in XPA answer `rep`.  An
 empty string is returned if there is no `i`-th reply.
 
-See also [`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
+# See also
+[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
 [`XPA.get_server`](@ref).
 """
 get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
@@ -454,9 +455,8 @@ get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
 yields whether `i`-th XPA answer `rep` contains an error message.  The error
 message can be retrieved by calling `XPA.get_message(rep, i)`.
 
-See also [`XPA.get`](@ref), [`XPA.has_message`](@ref),
-[`XPA.get_message`](@ref).
-
+# See also
+[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.get_message`](@ref).
 """
 has_error(rep::Reply, i::Integer=1) =
     _startswith(_get_msg(rep, i), _XPA_ERROR)
@@ -514,8 +514,8 @@ end
 
 yields whether answer `rep` contains any error messages.
 
-See also [`XPA.get`](@ref), [`XPA.has_error`](@ref), [`XPA.get_message`](@ref).
-
+# See also
+[`XPA.get`](@ref), [`XPA.has_error`](@ref), [`XPA.get_message`](@ref).
 """
 function has_errors(rep::Reply) :: Bool
     for i in 1:length(rep)
@@ -531,8 +531,8 @@ end
 
 yields whether `i`-th XPA answer `rep` contains an error message.
 
-See also [`XPA.get`](@ref), [`XPA.has_message`](@ref).
-
+# See also
+[`XPA.get`](@ref), [`XPA.has_message`](@ref).
 """
 has_message(rep::Reply, i::Integer=1) =
     _startswith(_get_msg(rep, i), _XPA_MESSAGE)
@@ -559,7 +559,6 @@ verifies whether answer(s) in the result `rep` from an [`XPA.get`](@ref) or
 [`XPA.set`](@ref) request has no errors.  If index `i` is specified only that
 specific answer is considered; otherwise, all answers are verified.  If keyword
 `throwerrors` is true, an exception is thrown for the first error found if any.
-
 """
 function verify(rep::Reply; kwds...)
     for i in 1:length(rep)
@@ -609,9 +608,8 @@ internal data buffer in `rep` for another call to `XPA.get_data`.  By default,
 In any cases, the type of the result is predictible, so there should be no type
 instability issue.
 
-See also [`XPA.get`](@ref), [`XPA.get_message`](@ref),
-[`XPA.get_server`](@ref).
-
+# See also
+[`XPA.get`](@ref), [`XPA.get_message`](@ref), [`XPA.get_server`](@ref).
 """
 get_data(rep::Reply, args...; kwds...) =
     get_data(Vector{Byte}, rep, args...; kwds...)
@@ -746,8 +744,8 @@ The following keywords are available:
   be a list of comma separated user names or `"*"` to access all users on a
   given machine.
 
-See also [`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
-
+# See also
+[`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
 """
 function set(conn::Client,
              apt::AbstractString,
@@ -805,8 +803,8 @@ Standard methods `pointer` and `sizeof` can be applied to `buf` to retieve the
 address and the size (in bytes) of the data and `convert(Ptr{Cvoid},buf)` can
 also be used.
 
-See also [`XPA.set`](@ref).
-
+# See also
+[`XPA.set`](@ref)
 """
 function buffer(arr::A) :: A where {T,N,A<:DenseArray{T,N}}
     @assert isbitstype(T)

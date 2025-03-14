@@ -92,8 +92,9 @@ if no error occurs, or [`XPA.FAILURE`](@ref) to signal an error.  The Julia XPA
 package takes care of maintaining a reference on the client data and callback
 methods.
 
-See also [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.store!`](@ref),
-[`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref) and
+# See also
+[`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.store!`](@ref),
+[`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref), and
 [`XPA.peek`](@ref).
 
 """
@@ -278,12 +279,13 @@ end
 """
     error(srv, msg) -> XPA.FAILURE
 
-communicates error message `msg` to the client when serving a request by XPA
+Communicates error message `msg` to the client when serving a request by XPA
 server `srv`.  This method shall only be used by the send/receive callbacks of
 an XPA server.
 
-Also see: [`XPA.Server`](@ref), [`XPA.message`](@ref),
-          [`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref).
+# See also
+[`XPA.Server`](@ref), [`XPA.message`](@ref),
+[`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref).
 
 """
 function Base.error(srv::Server, msg::AbstractString)
@@ -300,9 +302,8 @@ sets a specific acknowledgment message back to the client. Argument `srv` is
 the XPA server serving the client and `msg` is the acknowledgment message.
 This method shall only be used by the receive callback of an XPA server.
 
-Also see: [`XPA.Server`](@ref), [`XPA.error`](@ref),
-          [`XPA.ReceiveCallback`](@ref).
-
+# See also
+[`XPA.Server`](@ref), [`XPA.error`](@ref), [`XPA.ReceiveCallback`](@ref).
 """
 message(srv::Server, msg::AbstractString) =
     ccall((:XPAMessage, libxpa), Cint, (Server, Cstring), srv, msg)
@@ -316,12 +317,11 @@ of `data` or of the `len` bytes at address `ptr`.
 
 !!! warning
     This method is meant to be used in a *send* callback to store the result of
-    an [`XPA.get`](@ref) request processed by an XPA server.  Memory leaks are
-    expected if used in another context.
+    an [`XPA.get`](@ref) request processed by an XPA server.
+    Memory leaks are expected if used in another context.
 
-See also [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref) and
-[`XPA.get`](@ref).
-
+# See also
+[`XPA.Server`](@ref), [`XPA.SendCallback`](@ref), and [`XPA.get`](@ref).
 """
 function store!(buf::SendBuffer, ptr::Ptr{Byte}, len::Integer)
     # Before calling the send callback (see xpa.c), the buffer is empty
@@ -551,9 +551,8 @@ suspend() =
     ispolling() && close(__timer[])
 ```
 
-
-Also see: [`XPA.Server`](@ref), [`XPA.mainloop`](@ref).
-
+# See also
+[`XPA.Server`](@ref), [`XPA.mainloop`](@ref).
 """
 poll(sec::Real, maxreq::Integer) =
     ccall((:XPAPoll, libxpa), Cint, (Cint, Cint),
@@ -582,8 +581,8 @@ function rproc(::Nothing, srv::XPA.Server, params::String,
 end
 ```
 
-Also see: [`XPA.Server`](@ref), [`XPA.mainloop`](@ref).
-
+# See also
+[`XPA.Server`](@ref), [`XPA.mainloop`](@ref).
 """
 mainloop() =
     ccall((:XPAMainLoop, libxpa), Cint, ())
