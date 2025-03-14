@@ -266,7 +266,6 @@ an optional list of dimensions:
 
 See also [`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref) and
 [`XPA.verify`](@ref).
-
 """
 function get(conn::Client,
              apt::AbstractString,
@@ -360,6 +359,9 @@ _restore_nsusers(users::AbstractString) = begin
     nothing
 end
 
+"""
+    _free(rep::Reply)
+"""
 function _free(rep::Reply)
     nmax = _nmax(rep)
     fill!(rep.lengths, 0)
@@ -409,7 +411,6 @@ joins a tuple of arguments into a single string where arguments are separated
 by a single space.  It is implemented so as to be faster than `join(args, " ")`
 when `args` has less than 2 arguments.  It is intended to build XPA command
 string from arguments.
-
 """
 join_arguments(args::Tuple) = join(args, " ")
 join_arguments(args::Tuple{AbstractString}) = args[1]
@@ -447,12 +448,11 @@ empty string is returned if there is no `i`-th reply.
 
 See also [`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
 [`XPA.get_server`](@ref).
-
 """
 get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
 
 """
-    XPA.has_error(rep, i=1) -> boolean
+    XPA.has_error(rep, i=1) -> Bool
 
 yields whether `i`-th XPA answer `rep` contains an error message.  The error
 message can be retrieved by calling `XPA.get_message(rep, i)`.
@@ -513,7 +513,7 @@ function Base.show(io::IO, rep::Reply)
 end
 
 """
-    XPA.has_errors(rep) -> boolean
+    XPA.has_errors(rep::Reply) -> Bool
 
 yields whether answer `rep` contains any error messages.
 
@@ -530,7 +530,7 @@ function has_errors(rep::Reply) :: Bool
 end
 
 """
-    XPA.has_message(rep, i=1) -> boolean
+    XPA.has_message(rep::Reply, i=1) -> Bool
 
 yields whether `i`-th XPA answer `rep` contains an error message.
 
@@ -556,7 +556,7 @@ function _startswith(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
 end
 
 """
-    XPA.verify(rep [, i]; throwerrors::Bool=false) -> boolean
+    XPA.verify(rep::Reply [, i]; throwerrors::Bool=false) -> Bool
 
 verifies whether answer(s) in the result `rep` from an [`XPA.get`](@ref) or
 [`XPA.set`](@ref) request has no errors.  If index `i` is specified only that
@@ -686,7 +686,6 @@ _get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
 ```
 
 yields the contents of the internal data buffer as a Julia array.
-
 """
 function _get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
                   rep::Reply, i::Int, preserve::Bool) :: Array{T,N} where {T,N}
