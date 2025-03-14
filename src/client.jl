@@ -32,6 +32,7 @@ See also [`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref) and
 """
 Client() = Client(_open())
 
+const CONNECTIONS = Client[]
 """
     XPA.connection()
 
@@ -40,11 +41,7 @@ thread (a different connection is memorized for each Julia thread).
 
 Per-thread client connections are automatically open (or even re-open) as
 needed.
-
-""" connection
-
-const CONNECTIONS = Client[]
-
+"""
 function connection()
     id = Threads.threadid()
     while length(CONNECTIONS) < id
