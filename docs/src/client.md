@@ -39,9 +39,9 @@ The utility [`XPA.list()`](@ref) can be called to list available servers.  The
 arguments `args...` are automatically converted into a single command string
 where the arguments are separated by a single space.  For instance:
 
-```julia
+```julia-repl
 julia> XPA.list()
-1-element Array{XPA.AccessPoint,1}:
+1-element Vector{XPA.AccessPoint}:
  XPA.AccessPoint("DS9", "ds9", "7f000001:44805", "eric", 0x0000000000000003)
 ```
 
@@ -57,7 +57,7 @@ In order to get the address of a more specific server, you may call
 template to match against the `CLASS:NAME` identifier of the server.  For
 instance:
 
-```julia
+```julia-repl
 julia> addr = XPA.find(r"^DS9:").addr
 "7f000001:44805"
 ```
@@ -65,8 +65,9 @@ julia> addr = XPA.find(r"^DS9:").addr
 The above example will fail if no match is found as [`XPA.find(ident)`](@ref)
 yields `nothing` in that case.  A better usage is:
 
-```julia
-julia> apt = XPA.find(r"^DS9:")
+```julia-repl
+julia> apt = XPA.find(r"^DS9:");
+
 julia> addr = (apt === nothing ? nothing : apt.addr)
 "7f000001:44805"
 ```
@@ -77,7 +78,7 @@ no match is found.
 The keywords `user` can be specified to match the name of the owner of the
 server.  For instance:
 
-```julia
+```julia-repl
 julia> apt = XPA.find(r"^DS9:"; user=ENV["USER"])
 ```
 
@@ -227,7 +228,7 @@ ds9 = (conn, addr)
 
 To retrieve the version as a string:
 
-```julia
+```julia-repl
 julia> XPA.get(String, ds9..., "version")
 "ds9 8.0.1\n"
 ```
