@@ -53,6 +53,11 @@ function connection()
     return CONNECTIONS[id]
 end
 
+"""
+    _open()
+
+Wrapper for `XPAOpen`.
+"""
 function _open()
     # The argument of XPAOpen is currently ignored (it is reserved for future
     # use).
@@ -61,6 +66,11 @@ function _open()
     return ptr
 end
 
+"""
+    close(conn::XPA.Client)
+
+Close an `XPA.Client` connection. Wrapper for `XPAClose`.
+"""
 function Base.close(conn::Client)
     if (ptr = conn.ptr) != C_NULL
         conn.ptr = C_NULL # avoid closing more than once!
@@ -108,7 +118,7 @@ function list(conn::Client = connection())
 end
 
 """
-    XPA.find([conn=XPA.connection(),] ident) -> apt
+    XPA.find([conn=XPA.connection(),] ident; user="*", throwerrors=false) -> apt
 
 yields the accesspoint of the first XPA server matching `ident` or `nothing` if
 none is found.  If a match is found, the result `apt` is an instance of
@@ -337,17 +347,26 @@ function _get(conn::Client, apt::AbstractString, params::AbstractString,
     return rep
 end
 
-# Override environment variable XPA_NSUSERS.
+"""
+    _override_nsusers(users::AbstractString) -> String
+    _override_nsusers(users::Nothing) -> Nothing
+
+Override environment variable `XPA_NSUSERS`.
+"""
 _override_nsusers(::Nothing) = nothing
-_override_nsusers(users::AbstractString) = begin
+function _override_nsusers(users::AbstractString)
     prev = Base.get(ENV, "XPA_NSUSERS", "")
     ENV["XPA_NSUSERS"] = users
     return prev
 end
 
-# Restore environment variable XPA_NSUSERS.
+"""
+    _restore_nsusers(users::Union{AbstractString,Nothing})
+
+Restore environment variable `XPA_NSUSERS`.
+"""
 _restore_nsusers(::Nothing) = nothing
-_restore_nsusers(users::AbstractString) = begin
+function _restore_nsusers(users::AbstractString)
     if users == ""
         delete!(ENV, "XPA_NSUSERS")
     else
@@ -415,12 +434,12 @@ join_arguments(args::Tuple{Any}) = string(args[1])
 join_arguments(::Tuple{}) = ""
 
 """
+    _nmax(n::Integer)
 
-Private method `_nmax(n::Integer)` yields the maximum number of expected
-answers to a get/set request.  The result is `n` if `n ≥ 1` or
-`getconfig("XPA_MAXHOSTS")` otherwise.  The call `_nmax(rep::Reply)` yields
-the maximum number of answer that can be stored in `rep`.
-
+Private method. Yields the maximum number of expected answers to a get/set
+request.  The result is `n` if `n ≥ 1` or `getconfig("XPA_MAXHOSTS")`
+otherwise. The call `_nmax(rep::Reply)` yields the maximum number of
+answers that can be stored in `rep`.
 """
 _nmax(n::Integer) = (n == -1 ? Int(getconfig("XPA_MAXHOSTS")) : Int(n))
 _nmax(rep::Reply) = length(rep.lengths)
