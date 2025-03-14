@@ -289,9 +289,8 @@ an XPA server.
 
 """
 function Base.error(srv::Server, msg::AbstractString)
-    ccall((:XPAError, libxpa), Cint, (Server, Cstring),
-          srv, msg) == SUCCESS ||
-              error("XPAError failed for message \"$msg\"");
+    retcode = ccall((:XPAError, libxpa), Cint, (Server, Cstring), srv, msg)
+    retcode == SUCCESS || error("XPAError failed for message \"$msg\"")
     return FAILURE
 end
 
