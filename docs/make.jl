@@ -8,7 +8,9 @@ makedocs(;
     modules = [XPA],
     sitename = "XPA.jl",
     repo = GitHub("JuliaAstro/XPA.jl"),
-    format = Documenter.HTML(),
+    format = Documenter.HTML(;
+        canonical = "https://juliaastro.org/XPA/stable/",
+    ),
     authors = "Éric Thiébaut and contributors",
     pages,
     doctest = true,
@@ -17,4 +19,5 @@ makedocs(;
 deploydocs(
     repo = "github.com/JuliaAstro/XPA.jl.git",
     push_preview = true,
+    versions = ["stable" => "v^", "v#.#"] # Restrict to minor releases
 )
