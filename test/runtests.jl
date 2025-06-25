@@ -58,6 +58,28 @@ import Base: RefValue
         @test XPA.setconfig!(:XPA_IOCALLSXPA, !val) == val
         @test XPA.getconfig(:XPA_IOCALLSXPA) == !val
     end
+    @testset "XPA Client Connection" begin
+        A = @inferred XPA.connection()
+        @test A isa XPA.Client
+        @test isopen(A)
+        close(A)
+        @test !isopen(A)
+        B = @inferred XPA.connection()
+        @test B === A # should be the very same object
+        @test isopen(A) # connection should have been automatically re-open
+        task = Threads.@spawn begin
+            return XPA.connection()
+        end
+        GC.@preserve task begin
+            C = fetch(task)
+            @test C isa XPA.Client
+            @test C != A # different tasks have different connections
+            @test isopen(C)
+        end
+        finalize(task)
+        GC.gc()
+        @test !isopen(C) # connection shall have been closed
+    end
 end
 
 const VERBOSE = true

@@ -7,6 +7,11 @@
 - Client and server objects are preserved from being garbage collected in `ccall`,
   `unsafe_load`, and `unsafe_store!`.
 
+- `XPA.connection()` now returns a per-task client connection which is automatically re-open
+  if accidentally closed, and which is eventually closed when the task is garbage collected.
+  Previously, a per-thread client connection was returned which was wrong because a given
+  Julia task may migrate to another thread.
+
 - `XPA.getconfig` and `XPA.setconfig` gave been fixed fixed and their type stability
   improved.
 

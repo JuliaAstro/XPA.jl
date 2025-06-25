@@ -22,16 +22,24 @@ significant with slow connections or if there will be a large number of
 exchanges with a given access point.
 
 !!! note
-    To avoid the delay for connecting to the XPA server, all XPA methods that
-    perform XPA client requests now automatically use a connection that is kept
-    open for the calling thread.  Directly calling `XPA.Client()` should be
-    unnecessary, this method is kept for backward compatibility.
+    To avoid the delay for connecting to the XPA server, all XPA methods that perform XPA
+    client requests automatically use a connection that is kept open for the calling task.
+    Directly calling `XPA.Client()` should be unnecessary, this method is kept for backward
+    compatibility.
 
 # See also
 [`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref), and [`XPA.find`](@ref).
 
 """
 Client() = Client(_open())
+
+# Private wrapper for `XPAOpen`. Used to open or re-open a client connection.
+function _open()
+    # The argument of `XPAOpen` is currently ignored (it is reserved for future use).
+    ptr = ccall((:XPAOpen, libxpa), Ptr{CDefs.XPARec}, (Ptr{Cvoid},), Ptr{Cvoid}(0))
+    isnull(ptr) && error("failed to create a persistent XPA connection")
+    return ptr
+end
 
 function Base.close(conn::Client)
     if isopen(conn)
@@ -41,44 +49,53 @@ function Base.close(conn::Client)
     return nothing
 end
 
-const CONNECTIONS = Client[]
-
 """
     XPA.connection()
 
-yields a persistent XPA client connection that is kept open for the calling
-thread (a different connection is memorized for each Julia thread).
+yields a persistent XPA client connection that is kept open for the calling task (a
+different connection is memorized for each Julia task).
 
-Per-thread client connections are automatically open (or even re-open) as
-needed.
+Per-task client connections are automatically open (or even re-open) and closed as needed.
+
 """
 function connection()
-    id = Threads.threadid()
-    while length(CONNECTIONS) < id
-        push!(CONNECTIONS, Client(Ptr{CDefs.XPARec}(0)))
+    key = :XPA_Client
+    tls = task_local_storage()
+    if haskey(tls, key)
+        # Retrieve the client connection of the task and re-open it if needed.
+        conn = tls[key]::Client
+        isopen(conn) || setfield!(conn, :ptr, _open())
+    else
+        # Create a new connection for the task and manage to have it closed when the task is
+        # garbage collected.
+        conn = Client()
+        tls[key] = conn
+        finalizer(disconnect, current_task())
     end
-    if !isopen(CONNECTIONS[id])
-        # Automatically (re)open the client connection.
-        setfield!(CONNECTIONS[id], :ptr, _open())
-    end
-    return CONNECTIONS[id]
+    return conn
 end
 
-# Private wrapper for `XPAOpen`.
-function _open()
-    # The argument of `XPAOpen` is currently ignored (it is reserved for future use).
-    ptr = ccall((:XPAOpen, libxpa), Ptr{CDefs.XPARec}, (Ptr{Cvoid},), Ptr{Cvoid}(0))
-    isnull(ptr) && error("failed to create a persistent XPA connection")
-    return ptr
+function disconnect(task::Task)
+    # This method must not throw as it may be called when task is finalized.
+    key = :XPA_Client
+    tls = task.storage
+    if tls !== nothing && haskey(tls, key)
+        conn = tls[key]
+        if conn isa Client
+            close(conn)
+            delete!(tls, key)
+        end
+    end
+    return nothing
 end
 
 """
     XPA.list(conn=XPA.connection())
 
-yields a list of available XPA access points.  The result is a vector of
-[`XPA.AccessPoint`](@ref) instances.  Optional argument `conn` is a persistent
-XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a
-per-thread connection is used (see [`XPA.connection`](@ref)).
+yields a list of available XPA access points. The result is a vector of
+[`XPA.AccessPoint`](@ref) instances. Optional argument `conn` is a persistent XPA client
+connection (created by [`XPA.Client`](@ref)); if omitted, a per-task connection is used (see
+[`XPA.connection`](@ref)).
 
 # See also
 [`XPA.Client`](@ref), [`XPA.connection`](@ref) and [`XPA.find`](@ref).
@@ -130,7 +147,7 @@ form `CLASS:NAME` where `CLASS` and `CLASS` are matched against the server
 class and name respectively (they may be `"*"` to match any).
 
 Optional argument `conn` is a persistent XPA client connection (created by
-[`XPA.Client`](@ref)); if omitted, a per-thread connection is used (see
+[`XPA.Client`](@ref)); if omitted, a per-task connection is used (see
 [`XPA.connection`](@ref)).
 
 Keyword `user` may be used to specify the user name of the owner of the server
@@ -221,13 +238,13 @@ end
 """
     XPA.get([T, [dims,]] [conn,] apt, args...; kwds...)
 
-retrieves data from one or more XPA access points identified by `apt` (a
-template name, a `host:port` string or the name of a Unix socket file) with
-arguments `args...` (automatically converted into a single string where the
-arguments are separated by a single space).  Optional argument `conn` is a
-persistent XPA client connection (created by [`XPA.Client`](@ref)); if omitted,
-a per-thread connection is used (see [`XPA.connection`](@ref)).  The returned
-value depends on the optional arguments `T` and `dims`.
+retrieves data from one or more XPA access points identified by `apt` (a template name, a
+`host:port` string or the name of a Unix socket file) with arguments `args...`
+(automatically converted into a single string where the arguments are separated by a single
+space). Optional argument `conn` is a persistent XPA client connection (created by
+[`XPA.Client`](@ref)); if omitted, a per-task connection is used (see
+[`XPA.connection`](@ref)). The returned value depends on the optional arguments `T` and
+`dims`.
 
 If neither `T` nor `dims` are specified, an instance of [`XPA.Reply`](@ref) is
 returned with all the answer(s) from the XPA server(s).  The following keywords
@@ -726,11 +743,10 @@ _string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 """
     XPA.set([conn,] apt, args...; data=nothing, kwds...) -> rep
 
-sends `data` to one or more XPA access points identified by `apt` with
-arguments `args...` (automatically converted into a single string where the
-arguments are separated by a single space).  The result is an instance of
-[`XPA.Reply`](@ref).  Optional argument `conn` is a persistent XPA client
-connection (created by [`XPA.Client`](@ref)); if omitted, a per-thread
+sends `data` to one or more XPA access points identified by `apt` with arguments `args...`
+(automatically converted into a single string where the arguments are separated by a single
+space). The result is an instance of [`XPA.Reply`](@ref). Optional argument `conn` is a
+persistent XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a per-task
 connection is used (see [`XPA.connection`](@ref)).
 
 The following keywords are available:
