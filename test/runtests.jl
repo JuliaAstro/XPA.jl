@@ -3,10 +3,11 @@
 #
 # Exercises XPA communication in Julia.
 #
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2020, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
+#
+# Copyright (c) 2016-2025, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
 #
 module XPATests
 
