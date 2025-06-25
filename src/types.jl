@@ -3,7 +3,7 @@
 #
 # Type definitions for XPA package.
 #
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
 #
@@ -14,8 +14,10 @@ const Byte = UInt8
 const NULL = Ptr{Byte}(0)
 
 """
-`XPA.SUCCESS` and `XPA.FAILURE` are the possible values returned by the
-callbacks of an XPA server.
+
+`XPA.SUCCESS` and `XPA.FAILURE` are the possible values returned by the callbacks of an XPA
+server.
+
 """
 const SUCCESS = convert(Cint,  0)
 const FAILURE = convert(Cint, -1)
@@ -61,19 +63,21 @@ mutable struct Server # must be mutable to be finalized
 end
 
 """
+
 `XPA.TupleOf{T}` represents a tuple of any number of elements of type `T`, it
 is an alias for `Tuple{Vararg{T}}`
+
 """
 const TupleOf{T} = Tuple{Vararg{T}}
 
 """
-    Reply
+    XPA.Reply
 
-`XPA.Reply` is used to store the answer(s) of [`XPA.get`](@ref) and
-[`XPA.set`](@ref) requests.  Method `length` applied to an object of type
-`Reply` yields the number of replies.  Methods [`XPA.get_data`](@ref),
-[`XPA.get_server`](@ref) and [`XPA.get_message`](@ref) can be used to retrieve
-the contents of an object of type `XPA.Reply`.
+type of structure used to store the answer(s) of [`XPA.get`](@ref) and [`XPA.set`](@ref)
+requests. Method `length` applied to an object of type `Reply` yields the number of replies.
+Methods [`XPA.get_data`](@ref), [`XPA.get_server`](@ref) and [`XPA.get_message`](@ref) can
+be used to retrieve the contents of an object of type `XPA.Reply`.
+
 """
 mutable struct Reply
     replies::Int
@@ -86,10 +90,11 @@ Base.length(rep::Reply) = rep.replies
 abstract type Callback end
 
 """
-    SendCallback <: Callback
+    XPA.SendCallback <: XPA.Callback
 
-An instance of the `XPA.SendCallback` structure represents a callback called to
-serve an [`XPA.get`](@ref) request.
+An instance of the `XPA.SendCallback` structure represents a callback called to serve an
+[`XPA.get`](@ref) request.
+
 """
 mutable struct SendCallback{T,F<:Function} <: Callback
     # must be mutable because pointer_from_objref is used to recover it
@@ -99,14 +104,17 @@ mutable struct SendCallback{T,F<:Function} <: Callback
 end
 
 """
+    XPA.SendBuffer
 
-An instance of the `XPA.SendBuffer` structure is provided to send callbacks to
-record the addresses where to store the address and size of the data associated
-to the answer of an [`XPA.get`](@ref) request.  A send callback shall use
-[`XPA.store!`](@ref) to set the buffer contents.
+An instance of the `XPA.SendBuffer` structure is provided to send callbacks to record the
+addresses where to store the address and size of the data associated to the answer of an
+[`XPA.get`](@ref) request. A send callback shall use [`XPA.store!`](@ref) to set the buffer
+contents.
 
-See also [`XPA.store!`](@ref), [`XPA.get`](@ref), [`XPA.Server`](@ref)
-and [`XPA.SendCallback`](@ref).
+# See also
+
+[`XPA.store!`](@ref), [`XPA.get`](@ref), [`XPA.Server`](@ref) and
+[`XPA.SendCallback`](@ref).
 
 """
 struct SendBuffer
@@ -115,10 +123,11 @@ struct SendBuffer
 end
 
 """
-    ReceiveCallback <: Callback
+    XPA.ReceiveCallback <: XPA.Callback
 
-An instance of the `XPA.ReceiveCallback` structure represents a callback called
-to serve an [`XPA.set`](@ref) request.
+An instance of the `XPA.ReceiveCallback` structure represents a callback called to serve an
+[`XPA.set`](@ref) request.
+
 """
 mutable struct ReceiveCallback{T,F<:Function} <: Callback
     # must be mutable because pointer_from_objref is used to recover it
@@ -129,13 +138,15 @@ end
 
 """
 
-An instance of the `XPA.ReceiveBuffer` structure is provided to receive
-callbacks to record the address and the size of the data sent by an
-[`XPA.set`](@ref) request.  Methods `pointer(buf)` and `sizeof(buf)` can be
-used to query the address and the number of bytes of the buffer `buf`.
+An instance of the `XPA.ReceiveBuffer` structure is provided to receive callbacks to record
+the address and the size of the data sent by an [`XPA.set`](@ref) request. Methods
+`pointer(buf)` and `sizeof(buf)` can be used to query the address and the number of bytes of
+the buffer `buf`.
 
 # See also
+
 [`XPA.get`](@ref), [`XPA.Server`](@ref), and [`XPA.ReceiveCallback`](@ref).
+
 """
 struct ReceiveBuffer
     ptr::Ptr{Byte}
@@ -158,17 +169,16 @@ Base.sizeof(buf::ReceiveBuffer) = buf.len
 Base.pointer(buf::ReceiveBuffer) = buf.ptr
 
 """
-    AccessPoint
+    XPA.AccessPoint
 
-An instance of the `XPA.AccessPoint` structure represents an available XPA
-server.  A vector of such instances is returned by the [`XPA.list`](@ref)
-utility.
+An instance of the `XPA.AccessPoint` structure represents an available XPA server. A vector
+of such instances is returned by the [`XPA.list`](@ref) utility.
+
 """
 struct AccessPoint
     class::String # class of the access point
     name::String  # name of the access point
-    addr::String  # socket access method (host:port for inet,
-                  # file for local/unix)
+    addr::String  # socket access method (host:port for inet, file for local/unix)
     user::String  # user name of access point owner
     access::UInt  # allowed access
 end
@@ -181,7 +191,8 @@ const ACCESS = UInt(4)
 
 """
 
-`XPA.NullBuffer` is a singleton type representing a NULL-buffer when sending
-data to a server.
+`XPA.NullBuffer` is a singleton type representing a NULL-buffer when sending data to a
+server.
+
 """
 struct NullBuffer end

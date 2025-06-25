@@ -3,7 +3,7 @@
 #
 # Implement XPA client methods.
 #
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
 #
@@ -13,13 +13,12 @@
 """
     XPA.Client()
 
-yields a persistent XPA client connection which can be used for calls to
-[`XPA.set`](@ref) and [`XPA.get`](@ref) methods.  Persistence means that a
-connection to an XPA server is not closed when one of the above calls is
-completed but will be re-used on successive calls.  Using `XPA.Client()`
-therefore saves the time it takes to connect to a server, which could be
-significant with slow connections or if there will be a large number of
-exchanges with a given access point.
+yields a persistent XPA client connection which can be used for calls to [`XPA.set`](@ref)
+and [`XPA.get`](@ref) methods. Persistence means that a connection to an XPA server is not
+closed when one of the above calls is completed but will be re-used on successive calls.
+Using `XPA.Client()` therefore saves the time it takes to connect to a server, which could
+be significant with slow connections or if there will be a large number of exchanges with a
+given access point.
 
 !!! note
     To avoid the delay for connecting to the XPA server, all XPA methods that perform XPA
@@ -28,6 +27,7 @@ exchanges with a given access point.
     compatibility.
 
 # See also
+
 [`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref), and [`XPA.find`](@ref).
 
 """
@@ -98,7 +98,9 @@ connection (created by [`XPA.Client`](@ref)); if omitted, a per-task connection 
 [`XPA.connection`](@ref)).
 
 # See also
-[`XPA.Client`](@ref), [`XPA.connection`](@ref) and [`XPA.find`](@ref).
+
+[`XPA.Client`](@ref), [`XPA.connection`](@ref), and [`XPA.find`](@ref).
+
 """
 function list(conn::Client = connection())
     lst = AccessPoint[]
@@ -130,9 +132,9 @@ end
 """
     XPA.find([conn=XPA.connection(),] ident; user="*", throwerrors=false) -> apt
 
-yields the accesspoint of the first XPA server matching `ident` or `nothing` if
-none is found.  If a match is found, the result `apt` is an instance of
-`XPA.AccessPoint` and has the following members:
+yields the accesspoint of the first XPA server matching `ident` or `nothing` if none is
+found. If a match is found, the result `apt` is an instance of `XPA.AccessPoint` and has the
+following members:
 
     apt.class   # class of the access point (String)
     apt.name    # name of the access point
@@ -142,23 +144,25 @@ none is found.  If a match is found, the result `apt` is an instance of
 
 all members are `String`s but the last one, `access`, which is an `UInt`.
 
-Argument `ident` may be a regular expression or a string of the
-form `CLASS:NAME` where `CLASS` and `CLASS` are matched against the server
-class and name respectively (they may be `"*"` to match any).
+Argument `ident` may be a regular expression or a string of the form `CLASS:NAME` where
+`CLASS` and `CLASS` are matched against the server class and name respectively (they may be
+`"*"` to match any).
 
 Optional argument `conn` is a persistent XPA client connection (created by
 [`XPA.Client`](@ref)); if omitted, a per-task connection is used (see
 [`XPA.connection`](@ref)).
 
-Keyword `user` may be used to specify the user name of the owner of the server
-process, for instance `ENV["user"]` to match your servers.  The default
-is `user="*"` which matches any user.
+Keyword `user` may be used to specify the user name of the owner of the server process, for
+instance `ENV["user"]` to match your servers. The default is `user="*"` which matches any
+user.
 
-Keyword `throwerrors` may be set true (it is false by default) to automatically
-throw an exception if no match is found (instead of returning `nothing`).
+Keyword `throwerrors` may be set true (it is false by default) to automatically throw an
+exception if no match is found (instead of returning `nothing`).
 
 # See also
+
 [`XPA.Client`](@ref), [`XPA.address`](@ref) and [`XPA.list`](@ref).
+
 """
 find(ident::Union{AbstractString,Regex}; kwds...) =
     find(connection(), ident; kwds...)
@@ -216,10 +220,9 @@ end
 """
     XPA.address(apt) -> addr
 
-yields the address of XPA accesspoint `apt` which can be: an instance of
-`XPA.AccessPoint`, a string with a valid XPA server address or a server
-`class:name` identifier.  In the latter case, [`XPA.find`](@ref) is called to
-find a matching server which is much longer.
+yields the address of XPA accesspoint `apt` which can be: an instance of `XPA.AccessPoint`,
+a string with a valid XPA server address or a server `class:name` identifier. In the latter
+case, [`XPA.find`](@ref) is called to find a matching server which is much longer.
 
 """
 address(apt::XPA.AccessPoint) =
@@ -246,43 +249,41 @@ space). Optional argument `conn` is a persistent XPA client connection (created 
 [`XPA.connection`](@ref)). The returned value depends on the optional arguments `T` and
 `dims`.
 
-If neither `T` nor `dims` are specified, an instance of [`XPA.Reply`](@ref) is
-returned with all the answer(s) from the XPA server(s).  The following keywords
-are available:
+If neither `T` nor `dims` are specified, an instance of [`XPA.Reply`](@ref) is returned with
+all the answer(s) from the XPA server(s). The following keywords are available:
 
-* Keyword `nmax` specifies the maximum number of answers, `nmax=1` by default.
-  Specify `nmax=-1` to use the maximum number of XPA hosts.
+* Keyword `nmax` specifies the maximum number of answers, `nmax=1` by default. Specify
+  `nmax=-1` to use the maximum number of XPA hosts.
 
-* Keyword `throwerrors` specifies whether to check for errors.  If this keyword
-  is set true, an exception is thrown for the first error message encountered
-  in the list of answers.  By default, `throwerrors` is false.
+* Keyword `throwerrors` specifies whether to check for errors. If this keyword is set true,
+  an exception is thrown for the first error message encountered in the list of answers. By
+  default, `throwerrors` is false.
 
 * Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
-* Keyword `users` specifies the list of possible users owning the access-point.
-  This (temporarily) overrides the settings in environment variable
-  `XPA_NSUSERS`.  By default and if the environment variable `XPA_NSUSERS` is
-  not set, the access-point must be owned the caller (see Section
-  *Distinguishing Users* in XPA documentation).  The value is a string wich may
-  be a list of comma separated user names or `"*"` to access all users on a
-  given machine.
+* Keyword `users` specifies the list of possible users owning the access-point. This
+  (temporarily) overrides the settings in environment variable `XPA_NSUSERS`. By default and
+  if the environment variable `XPA_NSUSERS` is not set, the access-point must be owned the
+  caller (see Section *Distinguishing Users* in XPA documentation). The value is a string
+  wich may be a list of comma separated user names or `"*"` to access all users on a given
+  machine.
 
-If `T` and, possibly, `dims` are specified, a single answer and no errors are
-expected (as if `nmax=1` and `throwerrors=true`) and the data part of the
-answer is converted according to `T` which must be a type and `dims` which is
-an optional list of dimensions:
+If `T` and, possibly, `dims` are specified, a single answer and no errors are expected (as
+if `nmax=1` and `throwerrors=true`) and the data part of the answer is converted according
+to `T` which must be a type and `dims` which is an optional list of dimensions:
 
-* If only `T` is specified, it can be `String` to return a string interpreting
-  the data as ASCII characters or a type like `Vector{S}` to return the largest
-  vector of elements of type `S` that can be extracted from the returned data.
+* If only `T` is specified, it can be `String` to return a string interpreting the data as
+  ASCII characters or a type like `Vector{S}` to return the largest vector of elements of
+  type `S` that can be extracted from the returned data.
 
-* If both `T` and `dims` are specified, `T` can be a type like `Array{S}` or
-  `Array{S,N}` and `dims` a list of `N` dimensions to retrieve the data as an
-  array of type `Array{S,N}`.
+* If both `T` and `dims` are specified, `T` can be a type like `Array{S}` or `Array{S,N}`
+  and `dims` a list of `N` dimensions to retrieve the data as an array of type `Array{S,N}`.
 
 # See also
-[`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref) and
+
+[`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref), and
 [`XPA.verify`](@ref).
+
 """
 function get(conn::Client,
              apt::AbstractString,
@@ -362,6 +363,7 @@ end
     _override_nsusers(users::Nothing) -> Nothing
 
 Override environment variable `XPA_NSUSERS`.
+
 """
 _override_nsusers(::Nothing) = nothing
 function _override_nsusers(users::AbstractString)
@@ -374,6 +376,7 @@ end
     _restore_nsusers(users::Union{AbstractString,Nothing})
 
 Restore environment variable `XPA_NSUSERS`.
+
 """
 _restore_nsusers(::Nothing) = nothing
 function _restore_nsusers(users::AbstractString)
@@ -431,15 +434,15 @@ function _get_buf(rep::Reply, i::Int, preserve::Bool) :: Tuple{Ptr{Byte},Int}
 end
 
 """
-    XPA.join_arguments(args)
+    XPA.join_arguments(args) -> str::String
 
-joins a tuple of arguments into a single string where arguments are separated
-by a single space.  It is implemented so as to be faster than `join(args, " ")`
-when `args` has less than 2 arguments.  It is intended to build XPA command
-string from arguments.
+joins a tuple of arguments into a single string where arguments are separated by a single
+space. It is implemented so as to be faster than `join(args, " ")` when `args` has less than
+2 arguments. It is intended to build XPA command string from arguments.
+
 """
 join_arguments(args::Tuple) = join(args, " ")
-join_arguments(args::Tuple{AbstractString}) = args[1]
+join_arguments(args::Tuple{String}) = args[1]
 join_arguments(args::Tuple{Any}) = string(args[1])
 join_arguments(::Tuple{}) = ""
 
@@ -458,34 +461,40 @@ _nmax(rep::Reply) = length(rep.lengths)
 """
     XPA.get_server(rep, i=1)
 
-yields the XPA identifier of the server which sent the `i`-th reply in XPA
-answer `rep`.  An empty string is returned if there is no `i`-th reply.
+yields the XPA identifier of the server which sent the `i`-th reply in XPA answer `rep`. An
+empty string is returned if there is no `i`-th reply.
 
 # See also
-[`XPA.get`](@ref), [`XPA.get_message`](@ref).
+
+[`XPA.get`](@ref) and [`XPA.get_message`](@ref).
+
 """
 get_server(rep::Reply, i::Integer=1) = _string(_get_srv(rep, i))
 
 """
     XPA.get_message(rep, i=1)
 
-yields the message associated with the `i`-th reply in XPA answer `rep`.  An
-empty string is returned if there is no `i`-th reply.
+yields the message associated with the `i`-th reply in XPA answer `rep`. An empty string is
+returned if there is no `i`-th reply.
 
 # See also
-[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
+
+[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref), and
 [`XPA.get_server`](@ref).
+
 """
 get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
 
 """
     XPA.has_error(rep, i=1) -> Bool
 
-yields whether `i`-th XPA answer `rep` contains an error message.  The error
-message can be retrieved by calling `XPA.get_message(rep, i)`.
+yields whether `i`-th XPA answer `rep` contains an error message. The error message can be
+retrieved by calling `XPA.get_message(rep, i)`.
 
 # See also
+
 [`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.get_message`](@ref).
+
 """
 has_error(rep::Reply, i::Integer=1) =
     _startswith(_get_msg(rep, i), _XPA_ERROR)
@@ -544,7 +553,9 @@ end
 yields whether answer `rep` contains any error messages.
 
 # See also
-[`XPA.get`](@ref), [`XPA.has_error`](@ref), [`XPA.get_message`](@ref).
+
+[`XPA.get`](@ref), [`XPA.has_error`](@ref), and [`XPA.get_message`](@ref).
+
 """
 function has_errors(rep::Reply) :: Bool
     for i in 1:length(rep)
@@ -561,7 +572,9 @@ end
 yields whether `i`-th XPA answer `rep` contains an error message.
 
 # See also
-[`XPA.get`](@ref), [`XPA.has_message`](@ref).
+
+[`XPA.get`](@ref) and [`XPA.has_message`](@ref).
+
 """
 has_message(rep::Reply, i::Integer=1) =
     _startswith(_get_msg(rep, i), _XPA_MESSAGE)
@@ -585,9 +598,10 @@ end
     XPA.verify(rep::Reply [, i]; throwerrors::Bool=false) -> Bool
 
 verifies whether answer(s) in the result `rep` from an [`XPA.get`](@ref) or
-[`XPA.set`](@ref) request has no errors.  If index `i` is specified only that
-specific answer is considered; otherwise, all answers are verified.  If keyword
-`throwerrors` is true, an exception is thrown for the first error found if any.
+[`XPA.set`](@ref) request has no errors. If index `i` is specified only that specific answer
+is considered; otherwise, all answers are verified. If keyword `throwerrors` is true, an
+exception is thrown for the first error found if any.
+
 """
 function verify(rep::Reply; kwds...)
     for i in 1:length(rep)
@@ -616,29 +630,30 @@ end
 """
     XPA.get_data([T, [dims,]] rep, i=1; preserve=false)
 
-yields the data associated with the `i`-th reply in XPA answer `rep`.  The
-returned value depends on the optional leading arguments `T` and `dims`:
+yields the data associated with the `i`-th reply in XPA answer `rep`. The returned value
+depends on the optional leading arguments `T` and `dims`:
 
-* If neither `T` nor `dims` are specified, a vector of bytes (`UInt8`) is
-  returned.
+* If neither `T` nor `dims` are specified, a vector of bytes (`UInt8`) is returned.
 
-* If only `T` is specified, it can be `String` to return a string interpreting
-  the data as ASCII characters or a type like `Vector{S}` to return the largest
-  vector of elements of type `S` that can be extracted from the data.
+* If only `T` is specified, it can be `String` to return a string interpreting the data as
+  ASCII characters or a type like `Vector{S}` to return the largest vector of elements of
+  type `S` that can be extracted from the data.
 
-* If both `T` and `dims` are specified, `T` can be an array type like
-  `Array{S}` or `Array{S,N}` and `dims` a list of `N` dimensions to retrieve
-  the data as an array of type `Array{S,N}`.
+* If both `T` and `dims` are specified, `T` can be an array type like `Array{S}` or
+  `Array{S,N}` and `dims` a list of `N` dimensions to retrieve the data as an array of type
+  `Array{S,N}`.
 
-Keyword `preserve` can be used to specifiy whether or not to preserve the
-internal data buffer in `rep` for another call to `XPA.get_data`.  By default,
-`preserve=true` when `T = String` is specified and `preserve=false` otherwise.
+Keyword `preserve` can be used to specify whether or not to preserve the internal data
+buffer in `rep` for another call to `XPA.get_data`. By default, `preserve=true` when `T =
+String` is specified and `preserve=false` otherwise.
 
-In any cases, the type of the result is predictible, so there should be no type
-instability issue.
+In any cases, the type of the result is predictable, so there should be no type instability
+issue.
 
 # See also
-[`XPA.get`](@ref), [`XPA.get_message`](@ref), [`XPA.get_server`](@ref).
+
+[`XPA.get`](@ref), [`XPA.get_message`](@ref), and [`XPA.get_server`](@ref).
+
 """
 get_data(rep::Reply, args...; kwds...) =
     get_data(Vector{Byte}, rep, args...; kwds...)
@@ -695,12 +710,11 @@ end
 
 """
 
-Private method `_get_buf(rep,i,preserve)` yields `(ptr,len)` the address and
-length (in bytes) of internal buffer corresponding to the data for the `i`-th
-reply in `rep`.  If `preserve` is false, then the internal buffer is set to
-NULL and the caller is responsible to free it.  If `i` is out of range or if
-there are no data associated with the `i`-th reply in `rep`, `(NULL,0)` is
-returned.
+Private method `_get_buf(rep,i,preserve)` yields `(ptr,len)` the address and length (in
+bytes) of internal buffer corresponding to the data for the `i`-th reply in `rep`. If
+`preserve` is false, then the internal buffer is set to NULL and the caller is responsible
+to free it. If `i` is out of range or if there are no data associated with the `i`-th reply
+in `rep`, `(NULL,0)` is returned.
 
 The call:
 
@@ -710,6 +724,7 @@ _get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
 ```
 
 yields the contents of the internal data buffer as a Julia array.
+
 """
 function _get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
                   rep::Reply, i::Int, preserve::Bool) :: Array{T,N} where {T,N}
@@ -751,29 +766,30 @@ connection is used (see [`XPA.connection`](@ref)).
 
 The following keywords are available:
 
-* Keyword `data` specifies the data to send, may be `nothing`, an array or a
-  string.  If it is an array, it must have contiguous elements (as a for a
-  *dense* array) and must implement the `pointer` method.
+* Keyword `data` specifies the data to send, may be `nothing`, an array or a string. If it
+  is an array, it must have contiguous elements (as a for a *dense* array) and must
+  implement the `pointer` method.
 
-* Keyword `nmax` specifies the maximum number of recipients, `nmax=1` by
-  default.  Specify `nmax=-1` to use the maximum possible number of XPA hosts.
+* Keyword `nmax` specifies the maximum number of recipients, `nmax=1` by default. Specify
+  `nmax=-1` to use the maximum possible number of XPA hosts.
 
 * Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
-* Keyword `throwerrors` specifies whether to check for errors.  If this keyword
-  is set `true`, an exception is thrown for the first error message encountered
-  in the list of answers.  By default, `throwerrors` is false.
+* Keyword `throwerrors` specifies whether to check for errors. If this keyword is set
+  `true`, an exception is thrown for the first error message encountered in the list of
+  answers. By default, `throwerrors` is false.
 
-* Keyword `users` specifies the list of possible users owning the access-point.
-  This (temporarily) overrides the settings in environment variable
-  `XPA_NSUSERS`.  By default and if the environment variable `XPA_NSUSERS` is
-  not set, the access-point must be owned the caller (see Section
-  *Distinguishing Users* in XPA documentation).  The value is a string wich may
-  be a list of comma separated user names or `"*"` to access all users on a
-  given machine.
+* Keyword `users` specifies the list of possible users owning the access-point. This
+  (temporarily) overrides the settings in environment variable `XPA_NSUSERS`. By default and
+  if the environment variable `XPA_NSUSERS` is not set, the access-point must be owned the
+  caller (see Section *Distinguishing Users* in XPA documentation). The value is a string
+  which may be a list of comma separated user names or `"*"` to access all users on a given
+  machine.
 
 # See also
+
 [`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
+
 """
 function set(conn::Client,
              apt::AbstractString,
@@ -821,18 +837,19 @@ end
 """
     buf = XPA.buffer(data)
 
-yields an object `buf` representing the contents of `data` and which can be
-used as an argument to `ccall` without the risk of having the data garbage
-collected.  Argument `data` can be `nothing`, a dense array or a string.  If
-`data` is an array `buf` is just an alias for `data`.  If `data` is a string,
-`buf` is a temporary byte buffer where the string has been copied.
+yields an object `buf` representing the contents of `data` and which can be used as an
+argument to `ccall` without the risk of having the data garbage collected. Argument `data`
+can be `nothing`, a dense array or a string. If `data` is an array `buf` is just an alias
+for `data`. If `data` is a string, `buf` is a temporary byte buffer where the string has
+been copied.
 
-Standard methods `pointer` and `sizeof` can be applied to `buf` to retieve the
-address and the size (in bytes) of the data and `convert(Ptr{Cvoid},buf)` can
-also be used.
+Standard methods `pointer` and `sizeof` can be applied to `buf` to retieve the address and
+the size (in bytes) of the data and `convert(Ptr{Cvoid},buf)` can also be used.
 
 # See also
-[`XPA.set`](@ref)
+
+[`XPA.set`](@ref).
+
 """
 function buffer(arr::A) :: A where {T,N,A<:DenseArray{T,N}}
     @assert isbitstype(T)

@@ -1,9 +1,10 @@
-#
-# cdefs.jl --
-#
-# Constants and structures defined in "xpa.h".  These "private" definitions are
-# put in a sub-module to make them not directly accessible.
-#
+"""
+
+Module `XPA.CDefs` provides Julia equivalents to constants and structures defined in C
+header `xpa.h`. These **private** definitions are put in a sub-module to make them not
+directly accessible.
+
+"""
 module CDefs
 
 export XPACommRec, XPARec

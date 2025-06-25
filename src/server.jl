@@ -3,16 +3,16 @@
 #
 # Implement XPA client methods.
 #
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
 #
 # Copyright (c) 2016-2025, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
 #
 
-# We must make sure that the `send` and `recv` callbacks exist during the life
-# of the server.  To that end, we use the following dictionary to maintain
-# references to callbacks while they are used by an XPA server.
+# We must make sure that the `send` and `recv` callbacks exist during the life of the
+# server. To that end, we use the following dictionary to maintain references to callbacks
+# while they are used by an XPA server.
 const _SERVERS = Dict{Ptr{Cvoid},Tuple{Union{SendCallback, Nothing},
                                        Union{ReceiveCallback, Nothing}}}()
 
@@ -21,25 +21,22 @@ const _SERVERS = Dict{Ptr{Cvoid},Tuple{Union{SendCallback, Nothing},
 XPA.Server(class, name, help, send, recv) -> srv
 ```
 
-yields an XPA server identified by `class` and `name` (both specified as two
-strings).
+yields an XPA server identified by `class` and `name` (both specified as two strings).
 
-Argument `help` is a string which is meant to be returned by a help request
-from `xpaget`:
+Argument `help` is a string which is meant to be returned by a help request from `xpaget`:
 
 ```sh
 \$ xpaget class:name -help
 ```
 
 Arguments `send` and `recv` are callbacks which will be called upon a client
-[`XPA.get`](@ref) or [`XPA.set`](@ref) respectively.  At most one callback may
-be `nothing`.
+[`XPA.get`](@ref) or [`XPA.set`](@ref) respectively. At most one callback may be `nothing`.
 
-The send callback will be called in response to an external request from the
-`xpaget` program, the `XPAGet()` or `XPAGetFd()` C routines, or the
-[`XPA.get`](@ref) Julia method.  This callback is used to send data to the
-requesting client and is a combination of a function (`sfunc` below) and
-private data (`sdata` below) as summarized by the following typical example:
+The send callback will be called in response to an external request from the `xpaget`
+program, the `XPAGet()` or `XPAGetFd()` C routines, or the [`XPA.get`](@ref) Julia method.
+This callback is used to send data to the requesting client and is a combination of a
+function (`sfunc` below) and private data (`sdata` below) as summarized by the following
+typical example:
 
 ```julia
 # Method to handle a send request:
@@ -58,16 +55,15 @@ end
 send = XPA.SendCallback(sfunc, sdata)
 ```
 
-Here `sdata` is the client data (of type `S`) of the send callback, `srv` is
-the XPA server serving the request, `params` is the parameter list of the
-`[XPA.get](@ref)` call and `buf` specifies the addresses where to store the
-result of the request and its size (in bytes).
+Here `sdata` is the client data (of type `S`) of the send callback, `srv` is the XPA server
+serving the request, `params` is the parameter list of the `[XPA.get](@ref)` call and `buf`
+specifies the addresses where to store the result of the request and its size (in bytes).
 
-The receive callback will be called in response to an external request from the
-`xpaset` program, the `XPASet()` or `XPASetFd()` C routines, or the
-[`XPA.set`](@ref) Julia method.  This callback is used to process sent data to
-the requesting client and is a combination of a function (`rfunc` below) and
-private data (`rdata` below) as summarized by the following typical example:
+The receive callback will be called in response to an external request from the `xpaset`
+program, the `XPASet()` or `XPASetFd()` C routines, or the [`XPA.set`](@ref) Julia method.
+This callback is used to process sent data to the requesting client and is a combination of
+a function (`rfunc` below) and private data (`rdata` below) as summarized by the following
+typical example:
 
 ```julia
 # Method to handle a send request:
@@ -83,20 +79,18 @@ end
 send = XPA.ReceiveCallback(rfunc, rdata)
 ```
 
-Here `rdata` is the client data (of type `R`) of the receive callback, `srv` is
-the XPA server serving the request, `params` is the parameter list of the
-[`XPA.set`](@ref) call and `buf` specifies the address and size of the data to
-process.
+Here `rdata` is the client data (of type `R`) of the receive callback, `srv` is the XPA
+server serving the request, `params` is the parameter list of the [`XPA.set`](@ref) call and
+`buf` specifies the address and size of the data to process.
 
-The callback methods `sfunc` and/or `rfunc` should return [`XPA.SUCCESS`](@ref)
-if no error occurs, or [`XPA.FAILURE`](@ref) to signal an error.  The Julia XPA
-package takes care of maintaining a reference on the client data and callback
-methods.
+The callback methods `sfunc` and/or `rfunc` should return [`XPA.SUCCESS`](@ref) if no error
+occurs, or [`XPA.FAILURE`](@ref) to signal an error. The Julia XPA package takes care of
+maintaining a reference on the client data and callback methods.
 
 # See also
+
 [`XPA.poll`](@ref), [`XPA.mainloop`](@ref), [`XPA.store!`](@ref),
-[`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref), and
-[`XPA.peek`](@ref).
+[`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref), and [`XPA.peek`](@ref).
 
 """
 function Server(class::AbstractString,
@@ -158,24 +152,23 @@ end
 SendCallback(func, data=nothing; acl=true)
 ```
 
-yields an instance of `SendCallback` for sending the data requested by a call
-to [`XPA.get`](@ref) (or similar) to an XPA server.  Argument `func` is the
-method to be called to process the request and optional argument `data` is some
-associated contextual data.
+yields an instance of `SendCallback` for sending the data requested by a call to
+[`XPA.get`](@ref) (or similar) to an XPA server. Argument `func` is the method to be called
+to process the request and optional argument `data` is some associated contextual data.
 
-Keyword `acl` can be used to specify whether access control is enabled (true by
-default).
+Keyword `acl` can be used to specify whether access control is enabled (true by default).
 
 !!! note
-    The `freebuf` option is not available because we are always assuming that
-    the answer to a [`XPA.get`](@ref) request is a dynamically allocated buffer
-    which is automatically deleted by the XPA library.  This is like imposing
-    that the `freebuf` option is laways true.  This choice has been made
-    because it would otherwise be difficult to warrant that data passed by a
-    Julia send callback be not garbage collected before being fully transfered
-    to the client.
+    The `freebuf` option is not available because we are always assuming that the answer to
+    a [`XPA.get`](@ref) request is a dynamically allocated buffer which is automatically
+    deleted by the XPA library. This is like imposing that the `freebuf` option is always
+    true. This choice has been made because it would otherwise be difficult to warrant that
+    data passed by a Julia send callback be not garbage collected before being fully
+    transferred to the client.
 
-See also [`XPA.Server`](@ref), [`XPA.store!`](@ref) and
+# See also
+
+[`XPA.Server`](@ref), [`XPA.store!`](@ref) and
 [`XPA.ReceiveCallback`](@ref).
 
 """
@@ -190,25 +183,24 @@ end
 ReceiveCallback(func, data=nothing; acl=true)
 ```
 
-yields an instance of `ReceiveCallback` for processing the data sent by a call
-to [`XPA.set`](@ref) (or similar) to an XPA server.  Argument `rfunc` is the
-method to be called to process the request and optional argument `data` is some
-associated contextual data.
+yields an instance of `ReceiveCallback` for processing the data sent by a call to
+[`XPA.set`](@ref) (or similar) to an XPA server. Argument `rfunc` is the method to be called
+to process the request and optional argument `data` is some associated contextual data.
 
 Keyword `acl` can be used to specify whether access control is enabled (true by
 default).
 
 !!! note
-    The `buf`, `fillbuf` and `freebuf` options are not available because we are
-    always assuming that the data buffer accompanying an [`XPA.set`](@ref)
-    request is always provided as a dynamically allocated buffer by the XPA
-    library.  This is like imposing that the `buf`, `fillbuf` and `freebuf`
-    options are always true.  This choice has been made because it would
-    otherwise be difficult to warrant that data passed to a Julia receive
-    callback can be safely stealed by Julia.
+    The `buf`, `fillbuf` and `freebuf` options are not available because we are always
+    assuming that the data buffer accompanying an [`XPA.set`](@ref) request is always
+    provided as a dynamically allocated buffer by the XPA library. This is like imposing
+    that the `buf`, `fillbuf` and `freebuf` options are always true. This choice has been
+    made because it would otherwise be difficult to warrant that data passed to a Julia
+    receive callback can be safely stolen by Julia.
 
-Also see [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref) and
-[`XPA.set`](@ref).
+# See also
+
+[`XPA.Server`](@ref), [`XPA.SendCallback`](@ref) and [`XPA.set`](@ref).
 
 """
 function ReceiveCallback(func::F,
@@ -220,8 +212,8 @@ end
 const _MINIMAL_SEND_MODE = MODE_FREEBUF
 const _MINIMAL_RECEIVE_MODE = (MODE_BUF | MODE_FILLBUF | MODE_FREEBUF)
 
-# The send callback is executed in response to an external request from the
-# `xpaget` program, the `XPAGet()` routine, or `XPAGetFd()` routine.
+# The send callback is executed in response to an external request from the `xpaget`
+# program, the `XPAGet()` routine, or `XPAGetFd()` routine.
 function _send(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
                bufptr::Ptr{Ptr{Byte}}, lenptr::Ptr{Csize_t})::Cint
     # Check assumptions.
@@ -229,8 +221,8 @@ function _send(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
     (get_send_mode(srv) & _MINIMAL_SEND_MODE) == _MINIMAL_SEND_MODE ||
         return error(srv, "send mode must have option `freebuf=true`")
 
-    # Call actual callback providing the client data is the address of a known
-    # SendCallback object.
+    # Call actual callback providing the client data is the address of a known SendCallback
+    # object.
     return _send(unsafe_pointer_to_objref(clientdata), srv,
                  (params == C_NULL ? "" : unsafe_string(params)),
                  SendBuffer(bufptr, lenptr))
@@ -239,8 +231,8 @@ end
 _send(cb::SendCallback, srv::Server, params::String, buf::SendBuffer) =
     cb.send(cb.data, srv, params, buf)
 
-# The receive callback is executed in response to an external request from the
-# `xpaset` program, the `XPASet()` routine, or `XPASetFd()` routine.
+# The receive callback is executed in response to an external request from the `xpaset`
+# program, the `XPASet()` routine, or `XPASetFd()` routine.
 function _recv(clientdata::Ptr{Cvoid}, handle::Ptr{Cvoid}, params::Ptr{Byte},
                buf::Ptr{Byte}, len::Csize_t)::Cint
     # Check assumptions.
@@ -258,8 +250,8 @@ end
 _recv(cb::ReceiveCallback, srv::Server, params::String, buf::ReceiveBuffer) =
     cb.recv(cb.data, srv, params, buf)
 
-# Addresses of callbacks cannot be precompiled so we set them at run-time in
-# the __init__() method of the module.
+# Addresses of callbacks cannot be precompiled so we set them at run-time in the __init__()
+# method of the module.
 const _SEND_REF = Ref{Ptr{Cvoid}}(0)
 const _RECV_REF = Ref{Ptr{Cvoid}}(0)
 function __init__()
@@ -281,13 +273,13 @@ end
 """
     error(srv, msg) -> XPA.FAILURE
 
-Communicates error message `msg` to the client when serving a request by XPA
-server `srv`.  This method shall only be used by the send/receive callbacks of
-an XPA server.
+Communicates error message `msg` to the client when serving a request by XPA server `srv`.
+This method shall only be used by the send/receive callbacks of an XPA server.
 
 # See also
-[`XPA.Server`](@ref), [`XPA.message`](@ref),
-[`XPA.SendCallback`](@ref), [`XPA.ReceiveCallback`](@ref).
+
+[`XPA.Server`](@ref), [`XPA.message`](@ref), [`XPA.SendCallback`](@ref), and
+[`XPA.ReceiveCallback`](@ref).
 
 """
 function Base.error(srv::Server, msg::AbstractString)
@@ -299,12 +291,14 @@ end
 """
     XPA.message(srv, msg)
 
-sets a specific acknowledgment message back to the client. Argument `srv` is
-the XPA server serving the client and `msg` is the acknowledgment message.
-This method shall only be used by the receive callback of an XPA server.
+sets a specific acknowledgment message back to the client. Argument `srv` is the XPA server
+serving the client and `msg` is the acknowledgment message. This method shall only be used
+by the receive callback of an XPA server.
 
 # See also
-[`XPA.Server`](@ref), [`XPA.error`](@ref), [`XPA.ReceiveCallback`](@ref).
+
+[`XPA.Server`](@ref), [`XPA.error`](@ref), and [`XPA.ReceiveCallback`](@ref).
+
 """
 message(srv::Server, msg::AbstractString) =
     ccall((:XPAMessage, libxpa), Cint, (Server, Cstring), srv, msg)
@@ -313,16 +307,18 @@ message(srv::Server, msg::AbstractString) =
     XPA.store!(buf, data)
     XPA.store!(buf, ptr, len)
 
-store into the send buffer `buf` a dynamically allocated copy of the contents
-of `data` or of the `len` bytes at address `ptr`.
+store into the send buffer `buf` a dynamically allocated copy of the contents of `data` or
+of the `len` bytes at address `ptr`.
 
 !!! warning
-    This method is meant to be used in a *send* callback to store the result of
-    an [`XPA.get`](@ref) request processed by an XPA server.
-    Memory leaks are expected if used in another context.
+    This method is meant to be used in a *send* callback to store the result of an
+    [`XPA.get`](@ref) request processed by an XPA server. Memory leaks are expected if used
+    in another context.
 
 # See also
+
 [`XPA.Server`](@ref), [`XPA.SendCallback`](@ref), and [`XPA.get`](@ref).
+
 """
 function store!(buf::SendBuffer, ptr::Ptr{Byte}, len::Integer)
     # Before calling the send callback (see xpa.c), the buffer is empty
@@ -393,27 +389,28 @@ end
 """
     XPA.peek(T, buf, i=1) -> val
 
-yields the `i`-th binary value of type `T` stored into receive buffer `buf`.
-Bounds checking is performed unless `@inbounds` is active.
+yields the `i`-th binary value of type `T` stored into receive buffer `buf`. Bounds checking
+is performed unless `@inbounds` is active.
 
-Another usage of the `XPA.peek` method is to *convert* the contents of the
-receive buffer into an array:
+Another usage of the `XPA.peek` method is to *convert* the contents of the receive buffer
+into an array:
 
 ```julia
 XPA.peek(Vector{T}, [len,] buf) -> vec
 XPA.peek(Array{T[,N]}, (dim1, ..., dimN), buf) -> arr
 ```
 
-yield a Julia vector `vec` or array `arr` whose elements are of type `T` and
-dimensions are `len` or `(dim1, ..., dimN)`.  For a vector, if the length is
-unspecified, the vector of maximal length that fits in the buffer is returned.
+yield a Julia vector `vec` or array `arr` whose elements are of type `T` and dimensions are
+`len` or `(dim1, ..., dimN)`. For a vector, if the length is unspecified, the vector of
+maximal length that fits in the buffer is returned.
 
-If keyword `temporary` is true, then `unsafe_wrap` is called (with option
-`own=false`) to wrap the buffer contents into a Julia array whose life-time
-cannot exceeds that of the callback.  Otherwise, a copy of the buffer contents
-is returned.
+If keyword `temporary` is true, then `unsafe_wrap` is called (with option `own=false`) to
+wrap the buffer contents into a Julia array whose life-time cannot exceeds that of the
+callback. Otherwise, a copy of the buffer contents is returned.
 
-See also [`XPA.ReceiveCallback`](@ref).
+# See also
+
+[`XPA.ReceiveCallback`](@ref).
 
 """
 @inline function peek(::Type{T},
@@ -495,20 +492,18 @@ end
 """
     XPA.poll(sec, maxreq)
 
-polls for XPA events.  This method is meant to implement a polling event loop
-which checks for and processes XPA requests without blocking.
+polls for XPA events. This method is meant to implement a polling event loop which checks
+for and processes XPA requests without blocking.
 
-Argument `sec` specifies a timeout in seconds (rounded to millisecond
-precision).  If `sec` is positive, the method blocks no longer than this amount
-of time.  If `sec` is strictly negative, the routine blocks until the occurence
-of an event to be processed.
+Argument `sec` specifies a timeout in seconds (rounded to millisecond precision). If `sec`
+is positive, the method blocks no longer than this amount of time. If `sec` is strictly
+negative, the routine blocks until the occurrence of an event to be processed.
 
-Argument `maxreq` specifies how many requests will be processed.  If `maxreq <
-0`, then no events are processed, but instead, the returned value indicates the
-number of events that are pending.  If `maxreq == 0`, then all currently
-pending requests will be processed.  Otherwise, up to `maxreq` requests will be
-processed.  The most usual values for `maxreq` are `0` to process all requests
-and `1` to process one request.
+Argument `maxreq` specifies how many requests will be processed. If `maxreq < 0`, then no
+events are processed, but instead, the returned value indicates the number of events that
+are pending. If `maxreq == 0`, then all currently pending requests will be processed.
+Otherwise, up to `maxreq` requests will be processed. The most usual values for `maxreq` are
+`0` to process all requests and `1` to process one request.
 
 The following example implements a polling loop which has no noticeable impact
 on the consumption of CPU when no requests are emitted to the server:
@@ -525,18 +520,16 @@ function run()
 end
 ```
 
-Here the global variable `__running` is a reference to a boolean whose value
-indicates whether to continue to run the XPA server(s) created by the process.
-The idea is to pass the reference to the callbacks of the server (as their
-client data for instance) and let the callbacks stop the loop by setting the
-contents of the reference to `false`.
+Here the global variable `__running` is a reference to a boolean whose value indicates
+whether to continue to run the XPA server(s) created by the process. The idea is to pass the
+reference to the callbacks of the server (as their client data for instance) and let the
+callbacks stop the loop by setting the contents of the reference to `false`.
 
 Another possibility is to use [`XPA.mainloop`](@ref) (which to see).
 
-To let Julia performs other tasks, the polling method may be repeatedly called
-by a Julia timer.  The following example does this.  Calling `resume` starts
-polling for XPA events immediately and then every 100ms.  Calling `suspend`
-suspends the processing of XPA events.
+To let Julia performs other tasks, the polling method may be repeatedly called by a Julia
+timer. The following example does this. Calling `resume` starts polling for XPA events
+immediately and then every 100ms. Calling `suspend` suspends the processing of XPA events.
 
 ```julia
 const __timer = Ref{Timer}()
@@ -553,7 +546,9 @@ suspend() =
 ```
 
 # See also
-[`XPA.Server`](@ref), [`XPA.mainloop`](@ref).
+
+[`XPA.Server`](@ref) and [`XPA.mainloop`](@ref).
+
 """
 poll(sec::Real, maxreq::Integer) =
     ccall((:XPAPoll, libxpa), Cint, (Cint, Cint),
@@ -562,12 +557,11 @@ poll(sec::Real, maxreq::Integer) =
 """
     XPA.mainloop()
 
-runs XPA event loop which handles the requests sent to the server(s) created by
-this process.  The loop runs until all servers created by this process have
-been closed.
+runs XPA event loop which handles the requests sent to the server(s) created by this
+process. The loop runs until all servers created by this process have been closed.
 
-In the following example, the receive callback function close the server when
-it receives a `"quit"` command:
+In the following example, the receive callback function close the server when it receives a
+`"quit"` command:
 
 ```julia
 function rproc(::Nothing, srv::XPA.Server, params::String,
@@ -583,7 +577,9 @@ end
 ```
 
 # See also
-[`XPA.Server`](@ref), [`XPA.mainloop`](@ref).
+
+[`XPA.Server`](@ref) and [`XPA.mainloop`](@ref).
+
 """
 mainloop() =
     ccall((:XPAMainLoop, libxpa), Cint, ())
