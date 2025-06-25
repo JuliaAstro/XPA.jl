@@ -90,14 +90,13 @@ function disconnect(task::Task)
 end
 
 """
-    XPA.list()
-    XPA.list(f)
+    XPA.list(f = Returns(true); kwds...)
 
-yield a list of available XPA access points. The result is a vector of
+yields a list of available XPA access-points. The result is a vector of
 [`XPA.AccessPoint`](@ref) instances. Optional argument `f` is a predicate function to filter
-which access points to keep.
+which access-points to keep.
 
-For example, to only keep the access points owned by the user:
+For example, to only keep the access-points owned by the user:
 
 ```
 apts = XPA.list() do apt
@@ -107,7 +106,7 @@ end
 
 # Keywords
 
-- `method` is `nothing` (the default) orone of `inet`, `unix`, `local`, or `localhost` as a
+- `method` is `nothing` (the default) or one of `inet`, `unix`, `local`, or `localhost` as a
   symbol or a string to require a specific connection method.
 
 - `on_error` is a symbol indicating what to do in case of unexpected reply by the XPA name
@@ -122,6 +121,9 @@ end
 # See also
 
 [`XPA.find`](@ref) to select a single access-point.
+
+[`XPA.AccessPoint`](@ref) for the properties of access-points that can be used in the
+predicate function `f`.
 
 """
 function list(f::Function = Returns(true);
@@ -179,13 +181,6 @@ end
 
 @deprecate(list(conn::Client; kwds...), list(; kwds...), false)
 
-if !isdefined(Base, :Returns)
-    struct Returns{T}
-        value::T
-    end
-    (f::Returns)(args...; kwds...) = f.value
-end
-
 # `xpaget` executable is taken if possible from artifact.
 default_xpaget() = isdefined(XPA_jll, :xpaget_path) ? XPA_jll.xpaget_path : "xpaget"
 
@@ -198,47 +193,61 @@ check_connection_method(::Type{Bool}, s::Symbol) =
     s in (:inet, :unix, :local, :localhost)
 
 """
-    XPA.find([conn=XPA.connection(),] ident; user="*", throwerrors=false) -> apt
+    XPA.find(f = Returns(true); kwds...)
 
-yields the accesspoint of the first XPA server matching `ident` or `nothing` if none is
-found. If a match is found, the result `apt` is an instance of `XPA.AccessPoint` and has the
-following members:
+yields the access-point of the XPA server matching the requirements implemented by the
+predicate function `f` and keywords `kwds...`. In principle, the result is either a single
+instance of [`XPA.AccessPoint`](@ref) or `nothing` if no matching server is found (this type
+assertion may only be invalidated by the function specified via the `select` keyword).
 
-    apt.class   # class of the access point (String)
-    apt.name    # name of the access point
-    apt.addr    # socket access method (host:port for inet,
-    apt.user    # user name of access point owner
-    apt.access  # allowed access
+# Keywords
 
-all members are `String`s but the last one, `access`, which is an `UInt`.
+In addition to the keywords accepted by [`XPA.list`](@ref), the following keyword(s)
+are available:
 
-Argument `ident` may be a regular expression or a string of the form `CLASS:NAME` where
-`CLASS` and `CLASS` are matched against the server class and name respectively (they may be
-`"*"` to match any).
-
-Optional argument `conn` is a persistent XPA client connection (created by
-[`XPA.Client`](@ref)); if omitted, a per-task connection is used (see
-[`XPA.connection`](@ref)).
-
-Keyword `user` may be used to specify the user name of the owner of the server process, for
-instance `ENV["user"]` to match your servers. The default is `user="*"` which matches any
-user.
-
-Keyword `throwerrors` may be set true (it is false by default) to automatically throw an
-exception if no match is found (instead of returning `nothing`).
+- `select` specifies a strategy to apply if more than one access-point is found. `select`
+  can be a function (like `first` or `last` to keep the first or last entry), the symbolic
+  name `:interact` to ask the user to make the selection via a REPL menu, or anything else
+  to throw an exception. The default, is `:interact` if `isinteractive()` holds and `:throw`
+  otherwise.
 
 # See also
 
-[`XPA.Client`](@ref), [`XPA.address`](@ref) and [`XPA.list`](@ref).
+[`XPA.list`](@ref) which is called to retrieve a list of access-points with the predicate
+function `f`.
+
+[`XPA.AccessPoint`](@ref) for the properties of access-points that can be used in the predicate
+function `f`.
 
 """
-find(ident::Union{AbstractString,Regex}; kwds...) =
-    find(connection(), ident; kwds...)
+function find(f::Function = Returns(true);
+              select = isinteractive() ? :interact : :throw,
+              kwds...)
+    apts = list(f; kwds...)
+    n = length(apts)
+    if n == 0
+        return nothing
+    elseif n == 1
+        return apts[1]
+    elseif select isa Function
+        return select(apts)
+    elseif select === :interact
+        return select_interactively(apts)
+    else
+        error("more ($(length(apts))) than one XPA server match the constraints")
+    end
+end
 
-function find(conn::Client,
-              ident::AbstractString;
-              user::AbstractString = "*",
-              throwerrors::Bool = false)::Union{AccessPoint,Nothing}
+@deprecate(find(ident::Union{AbstractString,Regex}; kwds...),
+           deprecated_find(connection(), conn, ident; kwds...), false)
+
+@deprecate(find(conn::Client, ident::Union{AbstractString,Regex}; kwds...),
+           deprecated_find(conn, ident; kwds...), false)
+
+function deprecated_find(conn::Client,
+                         ident::AbstractString;
+                         user::AbstractString = "*",
+                         throwerrors::Bool = false)::Union{AccessPoint,Nothing}
     i = findfirst(isequal(':'), ident)
     if i === nothing
         # allow any class
@@ -263,10 +272,10 @@ function find(conn::Client,
     return nothing
 end
 
-function find(conn::Client,
-              ident::Regex;
-              user::AbstractString = "*",
-              throwerrors::Bool = false)::Union{AccessPoint,Nothing}
+function deprecated_find(conn::Client,
+                         ident::Regex;
+                         user::AbstractString = "*",
+                         throwerrors::Bool = false)::Union{AccessPoint,Nothing}
     anyuser = (user == "*")
     lst = list(conn)
     for j in eachindex(lst)
@@ -284,6 +293,27 @@ end
 
 @noinline throw_no_servers_match(ident::Regex) =
      error("no XPA servers match regular expression \"$(ident.pattern)\"")
+
+menu_string(str::AbstractString) = str
+menu_string(sym::Symbol) = string(sym)
+menu_string(apt::AccessPoint) =
+    "$(apt.class):$(apt.name) [address=\"$(apt.addr)\", user=\"$(apt.user)\"]"
+
+function select_interactively(iter)
+    options = ["(none)"]
+    foreach(iter) do item
+        push!(options, menu_string(item))
+    end
+    menu = RadioMenu(options)
+    choice = request("Please select one of:", menu)
+    for item in iter
+        choice == 2 && return item
+        choice > 2 && break
+        choice -= 1
+    end
+    return nothing
+end
+
 
 """
     XPA.address(apt) -> addr
@@ -309,7 +339,7 @@ end
 """
     XPA.get([T, [dims,]] [conn,] apt, args...; kwds...)
 
-retrieves data from one or more XPA access points identified by `apt` (a template name, a
+retrieves data from one or more XPA access-points identified by `apt` (a template name, a
 `host:port` string or the name of a Unix socket file) with arguments `args...`
 (automatically converted into a single string where the arguments are separated by a single
 space). Optional argument `conn` is a persistent XPA client connection (created by
@@ -826,7 +856,7 @@ _string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
 """
     XPA.set([conn,] apt, args...; data=nothing, kwds...) -> rep
 
-sends `data` to one or more XPA access points identified by `apt` with arguments `args...`
+sends `data` to one or more XPA access-points identified by `apt` with arguments `args...`
 (automatically converted into a single string where the arguments are separated by a single
 space). The result is an instance of [`XPA.Reply`](@ref). Optional argument `conn` is a
 persistent XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a per-task

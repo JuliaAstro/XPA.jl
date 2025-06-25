@@ -56,6 +56,9 @@ using TypeUtils: @public
 
 using XPA_jll
 
+import REPL
+using REPL.TerminalMenus
+
 using Base: ENV, @propagate_inbounds
 
 include("compat.jl")

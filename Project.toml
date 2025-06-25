@@ -4,11 +4,13 @@ repo = "https://github.com/JuliaAstro/XPA.jl.git"
 version = "0.2.2"
 
 [deps]
+REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TypeUtils = "c3b1956e-8857-4d84-9b79-890df85b1e67"
 XPA_jll = "9dbca590-e19a-5566-89a8-3997bfd21c58"
 
 [compat]
+REPL = "<0.0.1, 1"
 Test = "<0.0.1, 1"
 TypeUtils = "1.9.0"
 XPA_jll = "2.1.20"

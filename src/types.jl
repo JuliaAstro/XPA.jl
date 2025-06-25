@@ -169,10 +169,25 @@ Base.sizeof(buf::ReceiveBuffer) = buf.len
 Base.pointer(buf::ReceiveBuffer) = buf.ptr
 
 """
-    XPA.AccessPoint
+    apt = XPA.AccessPoint(class, name, addr, user, access)
 
-An instance of the `XPA.AccessPoint` structure represents an available XPA server. A vector
-of such instances is returned by the [`XPA.list`](@ref) utility.
+builds a structure representing an XPA server for a client. The arguments reflect the
+properties of the object:
+
+    apt.class   # class of the access point
+    apt.name    # name of the access point
+    apt.addr    # address of server (host:port for inet socket, path for unix socket, etc.)
+    apt.user    # user name of access point owner
+    apt.access  # allowed access
+
+All properties are strings except `access` which is an unsigned integer.
+
+# See also
+
+[`XPA.list`](@ref) to retrieve a vector of existing XPA servers possibly filtered by some
+provided function.
+
+[`XPA.find`](@ref) to obtain the access-point of a single XPA server.
 
 """
 struct AccessPoint
