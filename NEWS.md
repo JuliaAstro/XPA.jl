@@ -28,8 +28,9 @@
 - `XPA.list` can be called with a predicate function to filter the servers based on their
   `XPA.AccessPoint`: `XPA.list(f)` is the same as `filter(f, XPA.list()))`.
 
-- `XPA.find` can also be called with a predicate function and may interact with the user
-  to select a single access-point.
+- `XPA.find` can also be called with a predicate function and may interact with the user to
+  select a single access-point. This later idea came from (Marco
+  Lombardi)[https://github.com/astrozot], many thanks to him.
 
 - Previous methods for `XPA.list` and `XPA.find` have been deprecated.
 
