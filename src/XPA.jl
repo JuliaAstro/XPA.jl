@@ -61,6 +61,10 @@ using REPL.TerminalMenus
 
 using Base: ENV, @propagate_inbounds
 
+# XPA provides its own `get` and `set` functions.
+function get end
+function set end
+
 include("compat.jl")
 include("cdefs.jl")
 include("types.jl")
