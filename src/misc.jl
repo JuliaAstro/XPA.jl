@@ -28,8 +28,8 @@ nullify_pointer!(obj::Union{Client,Server}) = setfield!(obj, :ptr, Ptr{CDefs.XPA
 #------------------------------------------------------------------------------
 # CONFIGURATION METHODS
 
-# The following default values are defined in "xpap.c" and can be changed by
-# user environment variables.
+# The following default values are defined in "xpap.c" and can be changed by user
+# environment variables.
 const _DEFAULTS = Dict{String,Any}("XPA_MAXHOSTS" => 100,
                                    "XPA_SHORT_TIMEOUT" => 15,
                                    "XPA_LONG_TIMEOUT" => 180,
@@ -41,65 +41,68 @@ const _DEFAULTS = Dict{String,Any}("XPA_MAXHOSTS" => 100,
 """
     XPA.getconfig(key) -> val
 
-yields the value associated with configuration parameter `key` (a string or a
-symbol).  The following parameters are available (see XPA doc. for more
-information):
+yields the value associated with configuration parameter `key` (a string or a symbol). The
+following parameters are available (see XPA doc. for more information):
 
-| Key Name                | Default Value |
-|:----------------------- |:------------- |
-| `"XPA_MAXHOSTS"`        | `100`         |
-| `"XPA_SHORT_TIMEOUT"`   | `15`          |
-| `"XPA_LONG_TIMEOUT"`    | `180`         |
-| `"XPA_CONNECT_TIMEOUT"` | `10`          |
-| `"XPA_TMPDIR"`          | `"/tmp/.xpa"` |
-| `"XPA_VERBOSITY"`       | `true`        |
-| `"XPA_IOCALLSXPA"`      | `false`       |
+| Key Name                | Default Value                         |
+|:----------------------- |:------------------------------------- |
+| `"XPA_MAXHOSTS"`        | `$(_DEFAULTS["XPA_MAXHOSTS"])`        |
+| `"XPA_SHORT_TIMEOUT"`   | `$(_DEFAULTS["XPA_SHORT_TIMEOUT"])`   |
+| `"XPA_LONG_TIMEOUT"`    | `$(_DEFAULTS["XPA_LONG_TIMEOUT"])`    |
+| `"XPA_CONNECT_TIMEOUT"` | `$(_DEFAULTS["XPA_CONNECT_TIMEOUT"])` |
+| `"XPA_TMPDIR"`          | `"$(_DEFAULTS["XPA_TMPDIR"])"`        |
+| `"XPA_VERBOSITY"`       | `$(_DEFAULTS["XPA_VERBOSITY"])`       |
+| `"XPA_IOCALLSXPA"`      | `$(_DEFAULTS["XPA_IOCALLSXPA"])`      |
 
 Also see [`XPA.setconfig!`](@ref).
 
 """
+getconfig(key::Symbol) = getconfig(string(key))
 function getconfig(key::AbstractString)
     haskey(_DEFAULTS, key) || error("unknown XPA parameter \"$key\"")
-    def = _DEFAULTS[key]
-    if haskey(ENV, key)
-        val = haskey(ENV, key)
-        return (isa(def, Bool) ? (parse(Int, val) != 0) :
-                isa(def, Integer) ? parse(Int, val) :
-                isa(def, AbstractString) ? val :
-                error("unexpected type $(typeof(def)) for default value of \"$key\""))
-    else
-        return def
-    end
+    def = _DEFAULTS[key]::Union{Bool,Int,String}
+    haskey(ENV, key) || return def
+    val = ENV[key]::String
+    def isa String && return val
+    ival = tryparse(Int, val)
+    ival === nothing && error("value of environment variable \"$key\" cannot be converted to an integer")
+    return def isa Bool ? !iszero(ival) : ival
 end
 
 """
     XPA.setconfig!(key, val) -> oldval
 
-set the value associated with configuration parameter `key` to be `val`.  The
-previous value is returned.
+set the value associated with configuration parameter `key` to be `val`. The previous value
+is returned.
 
 Also see [`XPA.getconfig`](@ref).
 
 """
-function setconfig!(key::AbstractString,
-                    val::T) where {T<:Union{Integer,Bool,AbstractString}}
-    global _DEFAULTS, ENV
-    old = getconfig(key) # also check validity of key
-    def = _DEFAULTS[key]
-    if isa(def, Integer) && isa(val, Integer)
-        ENV[key] = string(val)
-    elseif isa(def, Bool) && isa(val, Bool)
-        ENV[key] = (val ? "1" : "0")
-    elseif isa(def, AbstractString) && isa(val, AbstractString)
-        ENV[key] = val
-    else
-        error("invalid type for XPA parameter \"$key\"")
-    end
-    return old
-end
-
-getconfig(key::Symbol) = getconfig(string(key))
 setconfig!(key::Symbol, val) = setconfig!(string(key), val)
+function setconfig!(key::AbstractString, val::Union{Integer,AbstractString})
+    global _DEFAULTS, ENV
+    old = getconfig(key) # also check validity of key and dictionary
+    if old isa Bool
+        if val isa Bool
+            ENV[key] = (val ? "1" : "0")
+            return old
+        elseif val isa Integer && (iszero(val) || isone(val))
+            ENV[key] = (isone(val) ? "1" : "0")
+            return old
+        end
+    elseif old isa Int
+        if val isa Integer
+            ENV[key] = string(val)
+            return old
+        end
+    else # `old` must be a string
+        if val isa AbstractString
+            ENV[key] = val
+            return old
+        end
+    end
+    error("invalid type `$typeof(val)` for XPA parameter \"$key\"")
+end
 
 #-------------------------------------------------------------------------------------------
 

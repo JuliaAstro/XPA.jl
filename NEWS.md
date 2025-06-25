@@ -7,6 +7,9 @@
 - Client and server objects are preserved from being garbage collected in `ccall`,
   `unsafe_load`, and `unsafe_store!`.
 
+- `XPA.getconfig` and `XPA.setconfig` gave been fixed fixed and their type stability
+  improved.
+
 ### Changed
 
 - Private abstract type `XPA.Handle` removed. Use `Union{XPA.Client,XPA.Server}` instead.

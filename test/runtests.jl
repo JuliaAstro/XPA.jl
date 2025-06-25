@@ -11,7 +11,54 @@
 module XPATests
 
 using XPA
+using Test
 import Base: RefValue
+
+@testset "XPA Messaging System" begin
+    @testset "XPA Configuration" begin
+        val = XPA.getconfig(:XPA_MAXHOSTS)
+        @test val isa Int
+        @test_throws Exception XPA.setconfig!(:XPA_MAXHOSTS, 2//3)
+        @test XPA.setconfig!(:XPA_MAXHOSTS, val - 1) === val
+        @test XPA.getconfig(:XPA_MAXHOSTS) === val - 1
+
+        val = XPA.getconfig(:XPA_SHORT_TIMEOUT)
+        @test val isa Int
+        @test_throws Exception XPA.setconfig!(:XPA_SHORT_TIMEOUT, 2//3)
+        @test XPA.setconfig!(:XPA_SHORT_TIMEOUT, val - 1) === val
+        @test XPA.getconfig(:XPA_SHORT_TIMEOUT) === val - 1
+
+        val = XPA.getconfig(:XPA_LONG_TIMEOUT)
+        @test val isa Int
+        @test_throws Exception XPA.setconfig!(:XPA_LONG_TIMEOUT, 2//3)
+        @test XPA.setconfig!(:XPA_LONG_TIMEOUT, val - 1) === val
+        @test XPA.getconfig(:XPA_LONG_TIMEOUT) === val - 1
+
+        val = XPA.getconfig(:XPA_CONNECT_TIMEOUT)
+        @test val isa Int
+        @test_throws Exception XPA.setconfig!(:XPA_CONNECT_TIMEOUT, 2//3)
+        @test XPA.setconfig!(:XPA_CONNECT_TIMEOUT, val - 1) === val
+        @test XPA.getconfig(:XPA_CONNECT_TIMEOUT) === val - 1
+
+        val = XPA.getconfig(:XPA_TMPDIR)
+        @test val isa String
+        @test_throws Exception XPA.setconfig!(:XPA_TMPDIR, 2//3)
+        @test XPA.setconfig!(:XPA_TMPDIR, "/some_other_dir") == val
+        @test XPA.getconfig(:XPA_TMPDIR) == "/some_other_dir"
+
+        val = XPA.getconfig(:XPA_VERBOSITY)
+        @test val isa Bool
+        @test_throws Exception XPA.setconfig!(:XPA_VERBOSITY, 2//3)
+        @test XPA.setconfig!(:XPA_VERBOSITY, !val) == val
+        @test XPA.getconfig(:XPA_VERBOSITY) == !val
+
+        val = XPA.getconfig(:XPA_IOCALLSXPA)
+        @test val isa Bool
+        @test_throws Exception XPA.setconfig!(:XPA_IOCALLSXPA, 2//3)
+        @test XPA.setconfig!(:XPA_IOCALLSXPA, !val) == val
+        @test XPA.getconfig(:XPA_IOCALLSXPA) == !val
+    end
+end
 
 const VERBOSE = true
 
