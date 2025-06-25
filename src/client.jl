@@ -6,7 +6,8 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2020, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
+#
+# Copyright (c) 2016-2025, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
 #
 
 """
@@ -28,10 +29,20 @@ exchanges with a given access point.
 
 # See also
 [`XPA.set`](@ref), [`XPA.get`](@ref), [`XPA.list`](@ref), and [`XPA.find`](@ref).
+
 """
 Client() = Client(_open())
 
+function Base.close(conn::Client)
+    if isopen(conn)
+        ccall((:XPAClose, libxpa), Cvoid, (Ptr{CDefs.XPARec},), conn)
+        nullify_pointer!(conn) # avoid closing more than once!
+    end
+    return nothing
+end
+
 const CONNECTIONS = Client[]
+
 """
     XPA.connection()
 
@@ -44,39 +55,21 @@ needed.
 function connection()
     id = Threads.threadid()
     while length(CONNECTIONS) < id
-        push!(CONNECTIONS, Client(C_NULL))
+        push!(CONNECTIONS, Client(Ptr{CDefs.XPARec}(0)))
     end
     if !isopen(CONNECTIONS[id])
         # Automatically (re)open the client connection.
-        CONNECTIONS[id].ptr = _open()
+        setfield!(CONNECTIONS[id], :ptr, _open())
     end
     return CONNECTIONS[id]
 end
 
-"""
-    _open()
-
-Wrapper for `XPAOpen`.
-"""
+# Private wrapper for `XPAOpen`.
 function _open()
-    # The argument of XPAOpen is currently ignored (it is reserved for future
-    # use).
-    ptr = ccall((:XPAOpen, libxpa), Ptr{Cvoid}, (Ptr{Cvoid},), C_NULL)
-    ptr != C_NULL || error("failed to create a persistent XPA connection")
+    # The argument of `XPAOpen` is currently ignored (it is reserved for future use).
+    ptr = ccall((:XPAOpen, libxpa), Ptr{CDefs.XPARec}, (Ptr{Cvoid},), Ptr{Cvoid}(0))
+    isnull(ptr) && error("failed to create a persistent XPA connection")
     return ptr
-end
-
-"""
-    close(conn::XPA.Client)
-
-Close an `XPA.Client` connection. Wrapper for `XPAClose`.
-"""
-function Base.close(conn::Client)
-    if (ptr = conn.ptr) != C_NULL
-        conn.ptr = C_NULL # avoid closing more than once!
-        ccall((:XPAClose, libxpa), Cvoid, (Ptr{Cvoid},), ptr)
-    end
-    return nothing
 end
 
 """

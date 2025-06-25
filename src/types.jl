@@ -6,7 +6,8 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2020, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
+#
+# Copyright (c) 2016-2025, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
 #
 
 const Byte = UInt8
@@ -28,27 +29,35 @@ const MODE_FREEBUF = 4 # XPA_MODE_FREEBUF in `xpap.h`
 const MODE_ACL     = 8 # XPA_MODE_ACL in `xpap.h`
 
 """
-    abstract type XPA.Handle
+    XPA.Client
 
-Abstract type `XPA.Handle` is the super type of client ([`XPA.Client`](@ref))
-and server ([`XPA.Server`](@ref)) connections in the XPA Messaging System.
-"""
-abstract type Handle end
-
-# All concrete types derived from `Handle` have a `ptr` field which is NULL if
-# handle has been closed (or not yet open).
-Base.isopen(conn::Handle) = conn.ptr != C_NULL
+An instance of the mutable structure `XPA.Client` represents a client connection in the XPA
+Messaging System.
 
 """
-    Client <: Handle
+mutable struct Client # must be mutable to be finalized
+    ptr::Ptr{CDefs.XPARec}
+    function Client(ptr::Ptr{CDefs.XPARec})
+        obj = new(ptr)
+        finalizer(close, obj)
+        return obj
+    end
+end
 
-An instance of the mutable structure `XPA.Client` represents a client
-connection in the XPA Messaging System.
 """
-mutable struct Client <: Handle # must be mutable to be finalized
-    ptr::Ptr{Cvoid} # pointer to XPARec structure
-    # finalizer can be safely called with a NULL pointer
-    Client(ptr::Ptr) = finalizer(close, new(ptr))
+    XPA.Server
+
+An instance of the mutable structure `XPA.Server` represents a server connection in the XPA
+Messaging System.
+
+"""
+mutable struct Server # must be mutable to be finalized
+    ptr::Ptr{CDefs.XPARec}
+    function Server(ptr::Ptr{CDefs.XPARec})
+        obj = new(ptr)
+        finalizer(close, obj)
+        return obj
+    end
 end
 
 """
@@ -73,16 +82,6 @@ mutable struct Reply
 end
 
 Base.length(rep::Reply) = rep.replies
-
-"""
-
-An instance of the mutable structure `XPA.Server` represents a server
-connection in the XPA Messaging System.
-
-"""
-mutable struct Server <: Handle # must be mutable to be finalized
-    ptr::Ptr{Cvoid} # pointer to XPARec structure
-end
 
 abstract type Callback end
 
@@ -155,7 +154,7 @@ struct ReceiveBuffer
         return new(ptr, len)
     end
 end
-Base.sizeof(buf::ReceiveBuffer)::Int = buf.len
+Base.sizeof(buf::ReceiveBuffer) = buf.len
 Base.pointer(buf::ReceiveBuffer) = buf.ptr
 
 """

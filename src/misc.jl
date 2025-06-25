@@ -6,8 +6,24 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2020, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
 #
+# Copyright (c) 2016-2025, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
+#
+
+# Works for arrays of numbers and of pointers.
+zerofill!(A::AbstractArray{T}) where {T} = fill!(A, T(0))
+
+isnull(ptr::Ptr{T}) where {T} = ptr == Ptr{T}(0)
+
+# Extend `Base.unsafe_convert` to automatically preserve `XPA.Client` and `XPA.Server`
+# objects from being garbage collected in `ccall`s.
+Base.unsafe_convert(::Type{Ptr{CDefs.XPARec}}, obj::Union{Client,Server}) = pointer(obj)
+
+Base.isopen(obj::Union{Client,Server}) = !isnull(pointer(obj))
+
+Base.pointer(obj::Union{Client,Server}) = getfield(obj, :ptr)
+
+nullify_pointer!(obj::Union{Client,Server}) = setfield!(obj, :ptr, Ptr{CDefs.XPARec}(0))
 
 #------------------------------------------------------------------------------
 # CONFIGURATION METHODS
@@ -85,88 +101,107 @@ end
 getconfig(key::Symbol) = getconfig(string(key))
 setconfig!(key::Symbol, val) = setconfig!(string(key), val)
 
-#------------------------------------------------------------------------------
-# PRIVATE METHODS
+#-------------------------------------------------------------------------------------------
 
-"""
-    _get_field(T, ptr, offset, default::T)
-    _get_field(T, ptr, off1, off2, default::T)
-
-**Private methods**.
-
-Retrieve a field of type `T` at offset `offset` (in bytes) with respect to address
-`ptr`.  If two offsets are given, the first one refers to a pointer with
-respect to which the second is applied.  If `ptr` is NULL, `default` is returned.
-"""
-_get_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, def::T) where {T} =
-    (ptr == C_NULL ? def : unsafe_load(convert(Ptr{T}, ptr + off)))
-
-function _get_field(::Type{String}, ptr::Ptr{Cvoid}, off::UInt, def::String)
-    ptr == C_NULL && return def
-    buf = unsafe_load(convert(Ptr{Ptr{Byte}}, ptr + off))
-    buf == C_NULL && return def
-    return unsafe_string(buf)
-end
-
-function _get_field(::Type{T}, ptr::Ptr{Cvoid}, off1::UInt, off2::UInt,
-                    def::T) where {T}
-    _get_field(T, _get_field(Ptr{Cvoid}, ptr, off1, C_NULL), off2, def)
-end
-
-function _set_field(::Type{T}, ptr::Ptr{Cvoid}, off::UInt, val) where {T}
-    if ptr == C_NULL
-        error("Cannot assign value to null pointer.")
-    end
-    unsafe_store!(convert(Ptr{T}, ptr + off), val)
-end
-
-let T = CDefs.XPARec, off = fieldoffset(T, Base.fieldindex(T, :comm, true))
-    @eval _get_comm(conn::Handle) =
-        _get_field(Ptr{Cvoid}, conn.ptr, $off, C_NULL)
-end
-
-for (func, memb, defval) in ((:get_name,      :name,         ""),
-                             (:get_class,     :xclass,       ""),
-                             (:get_send_mode, :send_mode,    0),
-                             (:get_recv_mode, :receive_mode, 0),
-                             (:get_method,    :method,       ""),
-                             (:get_sendian,   :sendian,      "?"))
-    T = CDefs.XPARec
-    idx = Base.fieldindex(T, memb, true)
-    off = fieldoffset(T, idx)
+# Accessors of some members of the `XPARec` structure.
+for (func, (memb, defval)) in (:get_name      => (:name,         ""),
+                               :get_class     => (:xclass,       ""),
+                               :get_send_mode => (:send_mode,    0),
+                               :get_recv_mode => (:receive_mode, 0),
+                               :get_method    => (:method,       ""),
+                               :get_sendian   => (:sendian,      "?"))
+    idx = Base.fieldindex(CDefs.XPARec, memb, true)
+    off = fieldoffset(CDefs.XPARec, idx)
+    typ = fieldtype(CDefs.XPARec, idx)
     if isa(defval, String)
-        @assert fieldtype(T, idx) === Ptr{UInt8}
-        typ = String
+        @assert typ === Ptr{UInt8}
         def = defval
+        @eval function $func(obj::Union{Client,Server})
+            GC.@preserve obj begin
+                ptr = pointer(obj)
+                if !isnull(ptr)
+                    buf = unsafe_load(Ptr{$typ}(ptr + off))
+                    if !isnull(buf)
+                        return unsafe_string(buf)
+                    end
+                end
+                return $def
+            end
+        end
     else
-        typ = fieldtype(T, idx)
-        def = convert(typ, defval)
+        def = convert(typ, defval)::typ
+        @eval function $func(obj::Union{Client,Server})
+            GC.@preserve obj begin
+                ptr = pointer(obj)
+                if !isnull(ptr)
+                    return unsafe_load(Ptr{$typ}(ptr + $off))
+                end
+                return $def
+            end
+        end
     end
-    @eval $func(conn::Handle) = _get_field($typ, conn.ptr, $off, $def)
 end
 
-for (func, memb, defval) in ((:get_comm_status,  :status,   0),
-                             (:get_comm_cmdfd,   :cmdfd,   -1),
-                             (:get_comm_datafd,  :datafd,  -1),
-                             (:get_comm_ack,     :ack,      1),
-                             (:get_comm_cendian, :cendian, "?"),
-                             (:get_comm_buf,     :buf,     NULL),
-                             (:get_comm_len,     :len,      0))
-    T = CDefs.XPACommRec
-    idx = Base.fieldindex(T, memb, true)
-    off = fieldoffset(T, idx)
+# Accessors of some member of the `XPACommRec` structure.
+for (func, (memb, defval)) in (:get_comm_status  => (:status,   0),
+                               :get_comm_cmdfd   => (:cmdfd,   -1),
+                               :get_comm_datafd  => (:datafd,  -1),
+                               :get_comm_ack     => (:ack,      1),
+                               :get_comm_cendian => (:cendian, "?"),
+                               :get_comm_buf     => (:buf,     NULL),
+                               :get_comm_len     => (:len,      0))
+    idx1 = Base.fieldindex(CDefs.XPARec, :comm, true)
+    off1 = fieldoffset(CDefs.XPARec, idx1)
+    typ1 = fieldtype(CDefs.XPARec, idx1)
+    @assert typ1 == Ptr{CDefs.XPACommRec}
+    idx2 = Base.fieldindex(CDefs.XPACommRec, memb, true)
+    off2 = fieldoffset(CDefs.XPACommRec, idx2)
+    typ2 = fieldtype(CDefs.XPACommRec, idx2)
     if isa(defval, String)
-        @assert fieldtype(T, idx) === Ptr{UInt8}
-        typ = String
+        @assert typ2 === Ptr{UInt8}
         def = defval
+        @eval function $func(obj::Union{Client,Server})
+            GC.@preserve obj begin
+                ptr1 = pointer(obj)
+                if !isnull(ptr1)
+                    ptr2 = unsafe_load(Ptr{$typ1}(ptr1 + $off1))
+                    if !isnull(ptr2)
+                        ptr3 = unsafe_load(Ptr{$typ2}(ptr2 + $off2))
+                        if !isnull(ptr3)
+                            return unsafe_string(buf)
+                        end
+                    end
+                end
+                return $def
+            end
+        end
     else
-        typ = fieldtype(T, idx)
-        def = convert(typ, defval)
-    end
-    @eval $func(conn::Handle) = _get_field($typ, _get_comm(conn), $off, $def)
-    if memb == :buf || memb == :len
-        @eval $(Symbol(:_set_comm_, memb))(conn::Handle, val) =
-            unsafe_store!(convert(Ptr{$typ}, _get_comm(conn) + $off), val)
+        def = convert(typ2, defval)::typ2
+        @eval function $func(obj::Union{Client,Server})
+            GC.@preserve obj begin
+                ptr1 = pointer(obj)
+                if !isnull(ptr1)
+                    ptr2 = unsafe_load(Ptr{$typ1}(ptr1 + $off1))
+                    if !isnull(ptr2)
+                        return unsafe_load(Ptr{$typ2}(ptr2 + $off2))
+                    end
+                end
+            end
+            return $def
+        end
+        if memb == :buf || memb == :len
+            # Encode mutator.
+            @eval function $(Symbol(:_set_comm_, memb))(obj::Union{Client,Server}, val)
+                GC.@preserve obj begin
+                    ptr1 = pointer(obj)
+                    isnull(ptr1) && error("cannot set member of closed object")
+                    ptr2 = unsafe_load(Ptr{$typ1}(ptr1 + $off1))
+                    isnull(ptr2) && error("unexpected NULL pointer")
+                    unsafe_store!(Ptr{$typ2}(ptr2 + $off2), convert($typ2, val))
+                end
+                return nothing
+            end
+        end
     end
 end
 

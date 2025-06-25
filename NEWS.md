@@ -1,5 +1,17 @@
 # Changes in XPA package
 
+## Unreleased
+
+### Fixed
+
+- Client and server objects are preserved from being garbage collected in `ccall`,
+  `unsafe_load`, and `unsafe_store!`.
+
+### Changed
+
+- Private abstract type `XPA.Handle` removed. Use `Union{XPA.Client,XPA.Server}` instead.
+
+
 ## Version 0.2.2
 
 - Remove unused type parameter. Stop newer julia from complaining.

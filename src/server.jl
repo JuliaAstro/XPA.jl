@@ -6,7 +6,8 @@
 #------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
-# Copyright (C) 2016-2020, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
+#
+# Copyright (c) 2016-2025, Éric Thiébaut (https://github.com/JuliaAstro/XPA.jl).
 #
 
 # We must make sure that the `send` and `recv` callbacks exist during the life
@@ -123,7 +124,7 @@ function Server(class::AbstractString, name::AbstractString,
                 class, name, help,
                 sproc, sdata, smode,
                 rproc, rdata, rmode)
-    ptr != C_NULL || error("failed to create an XPA server")
+    isnull(ptr) && error("failed to create an XPA server")
     obj = finalizer(close, Server(ptr))
     (get_send_mode(obj) & MODE_FREEBUF) != 0 ||
         error("send mode must have `freebuf` option set")
@@ -143,10 +144,11 @@ _mode(cb::ReceiveCallback) =
 
 # The following method is called upon garbage collection of an XPA server.
 function Base.close(srv::Server)
-    if (ptr = srv.ptr) != C_NULL
-        srv.ptr = C_NULL # avoid closing more than once!
-        ccall((:XPAFree, libxpa), Cint, (Ptr{Cvoid},), ptr)
+    if isopen(srv)
+        ccall((:XPAFree, libxpa), Cint, (Ptr{CDefs.XPARec},), srv)
+        ptr = pointer(srv)
         haskey(_SERVERS, ptr) && pop!(_SERVERS, ptr)
+        nullify_pointer!(srv) # avoid closing more than once!
     end
     return nothing
 end
