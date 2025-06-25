@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Use `@public` macro from [`TypeUtils`](https://github.com/emmt/TypeUtils.jl) package to
+  declare non-exported public methods.
+
 ### Fixed
 
 - Client and server objects are preserved from being garbage collected in `ccall`,
