@@ -22,6 +22,12 @@
 
 ### Changed
 
+- `XPA.list` uses `xpaget` executable by default to allow for specifying the connection
+  method (`inet`, `unix`, `local`, or `localhost`) with the XPA server.
+
+- `XPA.list` can be called with a predicate function to filter the servers based on their
+  `XPA.AccessPoint`: `XPA.list(f)` is the same as `filter(f, XPA.list()))`.
+
 - Private abstract type `XPA.Handle` removed. Use `Union{XPA.Client,XPA.Server}` instead.
 
 

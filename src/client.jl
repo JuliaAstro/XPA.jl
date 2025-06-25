@@ -90,44 +90,112 @@ function disconnect(task::Task)
 end
 
 """
-    XPA.list(conn=XPA.connection())
+    XPA.list()
+    XPA.list(f)
 
-yields a list of available XPA access points. The result is a vector of
-[`XPA.AccessPoint`](@ref) instances. Optional argument `conn` is a persistent XPA client
-connection (created by [`XPA.Client`](@ref)); if omitted, a per-task connection is used (see
-[`XPA.connection`](@ref)).
+yield a list of available XPA access points. The result is a vector of
+[`XPA.AccessPoint`](@ref) instances. Optional argument `f` is a predicate function to filter
+which access points to keep.
+
+For example, to only keep the access points owned by the user:
+
+```
+apts = XPA.list() do apt
+    apt.user == ENV["USER"]
+end
+```
+
+# Keywords
+
+- `method` is `nothing` (the default) orone of `inet`, `unix`, `local`, or `localhost` as a
+  symbol or a string to require a specific connection method.
+
+- `on_error` is a symbol indicating what to do in case of unexpected reply by the XPA name
+  server; it can be `:throw` to throw an exception, `:warn` (the default) to print a
+  warning, anything else to silently ignore the error.
+
+- `xpaget` is to specify the method to contact the XPA name server; it can be a string with
+  the path to the `xpaget` executable or a function behaving like [`XPA.get`](@ref). Using
+  [`XPA.get`](@ref) has fewer possibilities so, by default, the `xpaget` executable provided
+  by `XPA_jll` artifact is used.
 
 # See also
 
-[`XPA.Client`](@ref), [`XPA.connection`](@ref), and [`XPA.find`](@ref).
+[`XPA.find`](@ref) to select a single access-point.
 
 """
-function list(conn::Client = connection())
-    lst = AccessPoint[]
-    for str in split(chomp(get(String, conn, "xpans")), r"\n|\r\n?";
-                     keepempty=false)
-        arr = split(str; keepempty=false)
-        if length(arr) != 5
-            @warn "expecting 5 fields per access point (\"$str\")"
-            continue
-        end
-        access = zero(GET)
-        for c in arr[3]
-            if c == 'g'
-                access |= GET
-            elseif c == 's'
-                access |= SET
-            elseif c == 'i'
-                access |= INFO
+function list(f::Function = Returns(true);
+              method::Union{Nothing,Symbol,AbstractString} = nothing,
+              xpaget::Union{AbstractString,typeof(XPA.get)} = default_xpaget(),
+              on_error::Symbol = :warn)
+    # Check options.
+    method === nothing || check_connection_method(method)
+
+    # Obtain a list of running XPA servers from the XPA name server.
+    lines = if xpaget isa AbstractString
+        readlines(
+            if method === nothing
+                `$xpaget xpans`
             else
-                @warn "unexpected access string (\"$(arr[3])\")"
-                continue
+
+                `$xpaget -m $method xpans`
             end
+        )
+    else
+        if method !== nothing
+            global ENV
+            ENV["XPA_METHOD"] = method
         end
-        push!(lst, AccessPoint(arr[1], arr[2], arr[4], arr[5], access))
+        split(chomp(xpaget(String, "xpans")), r"\n|\r\n?"; keepempty=false)
+    end
+
+    # Parse textual descriptions of XPA servers.
+    lst = AccessPoint[]
+    for line in lines
+        m = match(r"^ *([^ ]+) +([^ ]+) +([gsi]+) +([^ ]+) +([^ ]+) *$", line)
+        if m === nothing
+            if on_error in (:throw, :warn)
+                mesg = "failed to parse `xpans` output line: \"$line\""
+                on_error === :throw ? error(mesg) : @warn mesg
+            end
+        else
+            class, name, acl, addr, user = m.captures
+            access = zero(GET)
+            for c in acl
+                if c == 'g'
+                    access |= GET
+                elseif c == 's'
+                    access |= SET
+                elseif c == 'i'
+                    access |= INFO
+                end
+            end
+            apt = AccessPoint(class, name, addr, user, access)
+            f(apt) && push!(lst, apt)
+        end
     end
     return lst
 end
+
+@deprecate(list(conn::Client; kwds...), list(; kwds...), false)
+
+if !isdefined(Base, :Returns)
+    struct Returns{T}
+        value::T
+    end
+    (f::Returns)(args...; kwds...) = f.value
+end
+
+# `xpaget` executable is taken if possible from artifact.
+default_xpaget() = isdefined(XPA_jll, :xpaget_path) ? XPA_jll.xpaget_path : "xpaget"
+
+check_connection_method(s) =
+    check_connection_method(Bool, s) ? nothing : throw(ArgumentError(
+        "invalid XPA connection method `$s`"))
+check_connection_method(::Type{Bool}, s::AbstractString) =
+    s in ("inet", "unix", "local", "localhost")
+check_connection_method(::Type{Bool}, s::Symbol) =
+    s in (:inet, :unix, :local, :localhost)
 
 """
     XPA.find([conn=XPA.connection(),] ident; user="*", throwerrors=false) -> apt

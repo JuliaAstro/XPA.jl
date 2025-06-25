@@ -58,6 +58,7 @@ using XPA_jll
 
 using Base: ENV, @propagate_inbounds
 
+include("compat.jl")
 include("cdefs.jl")
 include("types.jl")
 include("misc.jl")
