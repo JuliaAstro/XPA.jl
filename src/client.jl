@@ -49,6 +49,9 @@ function Base.close(conn::Client)
     return nothing
 end
 
+# Key in the task local storage for the per-task persistent client connection.
+const TLS_CLIENT = Symbol("XPA.Client")
+
 """
     XPA.connection()
 
@@ -59,7 +62,7 @@ Per-task client connections are automatically open (or even re-open) and closed 
 
 """
 function connection()
-    key = :XPA_Client
+    key = TLS_CLIENT
     tls = task_local_storage()
     if haskey(tls, key)
         # Retrieve the client connection of the task and re-open it if needed.
@@ -77,7 +80,7 @@ end
 
 function disconnect(task::Task)
     # This method must not throw as it may be called when task is finalized.
-    key = :XPA_Client
+    key = TLS_CLIENT
     tls = task.storage
     if tls !== nothing && haskey(tls, key)
         conn = tls[key]
