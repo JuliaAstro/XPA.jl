@@ -452,11 +452,12 @@ function _get(conn::Client, apt::AbstractString, params::AbstractString,
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
     prevusers = _override_nsusers(users)
-    replies = ccall((:XPAGet, libxpa), Cint,
-                    (Client, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
-                     Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-                    conn, apt, params, mode, address, lengths,
-                    address + offset, address + 2*offset, nmax)
+    replies = GC.@preserve lengths buffers ccall(
+        (:XPAGet, libxpa), Cint,
+        (Client, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
+         Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
+        conn, apt, params, mode, address, lengths,
+        address + offset, address + 2*offset, nmax)
     _restore_nsusers(prevusers)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPAGet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
@@ -562,7 +563,6 @@ answers that can be stored in `rep`.
 """
 _nmax(n::Integer) = (n == -1 ? Int(getconfig("XPA_MAXHOSTS")) : Int(n))
 _nmax(rep::Reply) = length(rep.lengths)
-
 
 """
     XPA.get_server(rep, i=1)
@@ -928,11 +928,12 @@ function _set(conn::Client, apt::AbstractString, params::AbstractString,
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
     prevusers = _override_nsusers(users)
-    replies = ccall((:XPASet, libxpa), Cint,
-              (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
-               Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-              conn, apt, params, mode, data, sizeof(data),
-                    address + offset, address + 2*offset, nmax)
+    replies = GC.@preserve lengths buffers ccall(
+        (:XPASet, libxpa), Cint,
+        (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
+         Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
+        conn, apt, params, mode, data, sizeof(data),
+        address + offset, address + 2*offset, nmax)
     _restore_nsusers(prevusers)
     0 ≤ replies ≤ nmax || error("unexpected number of replies from XPASet")
     rep = finalizer(_free, Reply(replies, lengths, buffers))
