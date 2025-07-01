@@ -109,8 +109,8 @@ end
 
 # Keywords
 
-- `method` is `nothing` (the default) or one of `inet`, `unix`, `local`, or `localhost` as a
-  symbol or a string to require a specific connection method.
+- `method` is `nothing` (the default) or one of `inet`, `unix` (or `local`), or `localhost`
+  as a symbol or a string to require a specific connection method.
 
 - `on_error` is a symbol indicating what to do in case of unexpected reply by the XPA name
   server; it can be `:throw` to throw an exception, `:warn` (the default) to print a
@@ -211,8 +211,15 @@ are available:
 - `select` specifies a strategy to apply if more than one access-point is found. `select`
   can be a function (like `first` or `last` to keep the first or last entry), the symbolic
   name `:interact` to ask the user to make the selection via a REPL menu, or anything else
-  to throw an exception. The default, is `:interact` if `isinteractive()` holds and `:throw`
-  otherwise.
+  to throw an exception. The default is `:throw`. If `select` is a function, it is called
+  with a vector of 2 or more matching instances of [`XPA.AccessPoint`](@ref) and the result
+  of `select` is returned by `XPA.find`.
+
+# Example
+
+``` julia
+apt = XPA.find(; interact = isinteractive(), method = :local)
+```
 
 # See also
 
@@ -223,21 +230,19 @@ function `f`.
 function `f`.
 
 """
-function find(f::Function = Returns(true);
-              select = isinteractive() ? :interact : :throw,
-              kwds...)
+function find(f::Function = Returns(true); select = :throw, kwds...)
     apts = list(f; kwds...)
     n = length(apts)
     if n == 0
         return nothing
     elseif n == 1
-        return apts[1]
+        return first(apts)
     elseif select isa Function
         return select(apts)
     elseif select === :interact
         return select_interactively(apts)
     else
-        error("more ($(length(apts))) than one XPA server match the constraints")
+        error("too many ($(length(apts))) XPA servers match the constraints")
     end
 end
 
