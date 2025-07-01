@@ -180,7 +180,12 @@ properties of the object:
     apt.user    # user name of access point owner
     apt.access  # allowed access
 
-All properties are strings except `access` which is an unsigned integer.
+All properties are strings except `access` which is an unsigned integer whose bits are set
+as follows:
+
+     !iszero(apt.access & $(Int(SET))) # holds if `set` command allowed
+     !iszero(apt.access & $(Int(GET))) # holds if `get` command allowed
+     !iszero(apt.access & $(Int(INFO))) # holds if `info` command allowed
 
 # See also
 
@@ -200,9 +205,8 @@ end
 
 # Access mode bits in AccessPoint.
 const SET    = UInt(1)
-const GET    = UInt(2)
-const INFO   = UInt(3)
-const ACCESS = UInt(4)
+const GET    = SET << 1
+const INFO   = SET << 2
 
 """
 
