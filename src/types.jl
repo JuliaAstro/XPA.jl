@@ -168,6 +168,12 @@ end
 Base.sizeof(buf::ReceiveBuffer) = buf.len
 Base.pointer(buf::ReceiveBuffer) = buf.ptr
 
+
+# Access mode bits in AccessPoint.
+const SET    = UInt(1)
+const GET    = SET << 1
+const INFO   = SET << 2
+
 """
     apt = XPA.AccessPoint(class, name, addr, user, access)
 
@@ -202,11 +208,6 @@ struct AccessPoint
     user::String  # user name of access point owner
     access::UInt  # allowed access
 end
-
-# Access mode bits in AccessPoint.
-const SET    = UInt(1)
-const GET    = SET << 1
-const INFO   = SET << 2
 
 """
 
