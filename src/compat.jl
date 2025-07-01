@@ -4,3 +4,7 @@ if !isdefined(Base, :Returns)
     end
     (f::Returns)(args...; kwds...) = f.value
 end
+
+if !isdefined(Base, :Memory)
+    const Memory{T} = Vector{T}
+end

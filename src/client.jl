@@ -447,8 +447,8 @@ end
 function _get(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, nmax::Int, throwerrors::Bool,
               users::Union{Nothing,AbstractString})
-    lengths = fill!(Vector{Csize_t}(undef, nmax), 0)
-    buffers = fill!(Vector{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
+    lengths = fill!(Memory{Csize_t}(undef, nmax), 0)
+    buffers = fill!(Memory{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
     prevusers = _override_nsusers(users)
@@ -923,8 +923,8 @@ function _set(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, data::Union{NullBuffer,DenseArray},
               nmax::Int, throwerrors::Bool,
               users::Union{Nothing,AbstractString})
-    lengths = fill!(Vector{Csize_t}(undef, nmax), 0)
-    buffers = fill!(Vector{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
+    lengths = fill!(Memory{Csize_t}(undef, nmax), 0)
+    buffers = fill!(Memory{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
     prevusers = _override_nsusers(users)

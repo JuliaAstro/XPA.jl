@@ -81,8 +81,8 @@ be used to retrieve the contents of an object of type `XPA.Reply`.
 """
 mutable struct Reply
     replies::Int
-    lengths::Vector{Csize_t}
-    buffers::Vector{Ptr{Byte}}
+    lengths::Memory{Csize_t}
+    buffers::Memory{Ptr{Byte}}
 end
 
 Base.length(rep::Reply) = rep.replies
