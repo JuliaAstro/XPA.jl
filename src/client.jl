@@ -138,22 +138,25 @@ function list(f::Function = Returns(true);
     # Check options.
     method === nothing || check_connection_method(method)
 
-    # Obtain a list of running XPA servers from the XPA name server.
-    lines = if xpaget isa AbstractString
-        readlines(
-            if method === nothing
-                `$xpaget xpans`
-            else
-
-                `$xpaget -m $method xpans`
-            end
-        )
-    else
-        if method !== nothing
-            global ENV
-            ENV["XPA_METHOD"] = method
+    # Memorize environment and collect a list of running XPA servers.
+    global ENV
+    has_method = haskey(ENV, "XPA_METHOD")
+    old_method = has_method ? ENV["XPA_METHOD"] : ""
+    lines = String[]
+    try
+        for _method in (method === nothing ? ("unix", "inet") : (string(method),))
+            ENV["XPA_METHOD"] = _method
+            append!(lines, _list_accesspoints(xpaget))
         end
-        split(chomp(xpaget(String, "xpans")), r"\n|\r\n?"; keepempty=false)
+    catch ex
+        throw(ex)
+    finally
+        # Restore environment.
+        if has_method
+            ENV["XPA_METHOD"] = old_method
+        else
+            delete!(ENV, "XPA_METHOD")
+        end
     end
 
     # Parse textual descriptions of XPA servers.
@@ -185,6 +188,10 @@ function list(f::Function = Returns(true);
 end
 
 @deprecate(list(conn::Client; kwds...), list(; kwds...), false)
+
+_list_accesspoints(xpaget::AbstractString) = readlines(`$xpaget xpans`)
+_list_accesspoints(xpaget::Function) =
+    split(chomp(xpaget(String, "xpans")), r"\n|\r\n?"; keepempty=false)
 
 # `xpaget` executable is taken if possible from artifact.
 default_xpaget() = isdefined(XPA_jll, :xpaget_path) ? XPA_jll.xpaget_path : "xpaget"
