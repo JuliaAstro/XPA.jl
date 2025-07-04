@@ -3,7 +3,7 @@
 #
 # Implement XPA configuration methods and miscellaneous methods.
 #
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 #
 # This file is part of XPA.jl released under the MIT "expat" license.
 #
@@ -25,7 +25,7 @@ Base.pointer(obj::Union{Client,Server}) = getfield(obj, :ptr)
 
 nullify_pointer!(obj::Union{Client,Server}) = setfield!(obj, :ptr, Ptr{CDefs.XPARec}(0))
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 # CONFIGURATION METHODS
 
 # The following default values are defined in "xpap.c" and can be changed by user

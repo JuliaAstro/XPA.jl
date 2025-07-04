@@ -168,7 +168,6 @@ end
 Base.sizeof(buf::ReceiveBuffer) = buf.len
 Base.pointer(buf::ReceiveBuffer) = buf.ptr
 
-
 # Access mode bits in AccessPoint.
 const SET    = UInt(1)
 const GET    = SET << 1
@@ -180,10 +179,10 @@ const INFO   = SET << 2
 builds a structure representing an XPA server for a client. The arguments reflect the
 properties of the object:
 
-    apt.class   # class of the access point
-    apt.name    # name of the access point
-    apt.addr    # address of server (host:port for inet socket, path for unix socket, etc.)
-    apt.user    # user name of access point owner
+    apt.class   # access-point class
+    apt.name    # access-point name
+    apt.addr    # server address (host:port for inet socket, path for unix socket)
+    apt.user    # access-point owner
     apt.access  # allowed access
 
 All properties are strings except `access` which is an unsigned integer whose bits are set
@@ -202,11 +201,11 @@ provided function.
 
 """
 struct AccessPoint
-    class::String # class of the access point
-    name::String  # name of the access point
-    addr::String  # socket access method (host:port for inet, file for local/unix)
-    user::String  # user name of access point owner
-    access::UInt  # allowed access
+    class::String
+    name::String
+    addr::String
+    user::String
+    access::UInt
 end
 
 """

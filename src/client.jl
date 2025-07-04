@@ -73,12 +73,14 @@ function connection()
         # garbage collected.
         conn = Client()
         tls[key] = conn
-        finalizer(disconnect, current_task())
+        finalizer(_disconnect, current_task())
     end
     return conn
 end
 
-function disconnect(task::Task)
+# `_disconnect` is private because it is a bad idea to disconnect another task unless it is
+# being finalized.
+function _disconnect(task::Task)
     # This method must not throw as it may be called when task is finalized.
     key = TLS_CLIENT
     tls = task.storage
