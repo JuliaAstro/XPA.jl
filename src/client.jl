@@ -344,6 +344,7 @@ function address(apt::AbstractString) # FIXME
     return apt
 end
 
+AccessPoint() = AccessPoint(EMPTY_STRING, EMPTY_STRING, EMPTY_STRING, EMPTY_STRING, 0)
 Base.isopen(apt::XPA.AccessPoint) = !isempty(apt.address)
 
 """

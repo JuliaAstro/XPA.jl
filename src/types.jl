@@ -248,6 +248,9 @@ as follows:
 
 Method `isopen(apt)` yields whether `address` is not an empty string.
 
+`XPA.AccessPoint()` yields an access-point whose `class`, `name`, `address`, and `user` are
+empty strings and whose `access` is 0.
+
 # See also
 
 [`XPA.list`](@ref) to retrieve a vector of existing XPA servers possibly filtered by some

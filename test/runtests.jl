@@ -81,6 +81,24 @@ import Base: RefValue
         GC.gc()
         @test !isopen(C) # connection shall have been closed
     end
+    @testset "XPA Access Point" begin
+        apt = XPA.AccessPoint()
+        @test apt isa XPA.AccessPoint
+        @test apt.class == ""
+        @test apt.name == ""
+        @test apt.address == ""
+        @test apt.user == ""
+        @test apt.access == 0
+        @test !isopen(apt)
+        apt = XPA.AccessPoint("class", "name", "addr", "user", 5)
+        @test apt isa XPA.AccessPoint
+        @test apt.class == "class"
+        @test apt.name == "name"
+        @test apt.address == "addr"
+        @test apt.user == "user"
+        @test apt.access == 5
+        @test isopen(apt)
+    end
 end
 
 const VERBOSE = true
