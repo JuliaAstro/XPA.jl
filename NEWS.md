@@ -34,9 +34,10 @@
 
 - Previous methods for `XPA.list` and `XPA.find` have been deprecated.
 
-- Reply object returned by `XPA.get` is now an abstract vector of answers which have
-  properties that replace the need to call accessors. Assuming `rep` is such an object,
-  these properties are listed in the following table.
+- Reply object `rep` returned by `XPA.get` is now an abstract vector of answers. The syntax
+  `rep[]` yields `rep[1]` if `rep` has a single answer and throws otherwise. An answer
+  `rep[i]` has properties that replace the need to call accessors, these properties are
+  listed in the following table.
 
   | New syntax with properties      | Old syntax with accessors                |
   |:--------------------------------|:-----------------------------------------|

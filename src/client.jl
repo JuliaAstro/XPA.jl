@@ -533,6 +533,8 @@ Base.eachindex(A::Reply) = Base.OneTo(length(A))
 Base.eachindex(::IndexLinear, A::Reply) = eachindex(A)
 Base.IndexStyle(::Type{<:Reply}) = IndexLinear()
 Base.getindex(A::Reply, i::Int) = Entry(A, i)
+Base.getindex(A::Reply) = length(A) == 1 ? A[1] :
+    error("XPA reply does not have a single answer, got $(length(A))")
 Base.size(A::Reply) = (length(A),)
 Base.axes(A::Reply) = (eachindex(A),)
 

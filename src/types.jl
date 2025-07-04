@@ -91,7 +91,10 @@ type of structure used to store the answer(s) of [`XPA.get`](@ref) and [`XPA.set
 requests.
 
 Assuming `A` is an instance of `XPA.Reply`, it can be used as an abstract vector and `A[i]`
-yields the `i`-th answer in `A` which implements the following properties:
+yields the `i`-th answer in `A`. The syntax `A[]` yields `A[1]` if `A` has a single answer
+and throws otherwise.
+
+A single answer `A[i]` implements the following properties:
 
 ```julia
 A[i].server       # identifier of the XPA server which sent the `i`-th answer
@@ -112,9 +115,6 @@ A[i].data(Array{T}, dims...) # an array of element type `T` and size `dims...`
 ```
 
 If `Base.Memory` exists `Vector{T}` can be replaced by `Memory{T}`.
-Method `length` applied to an object of type `Reply` yields the number of replies.
-Methods [`XPA.get_data`](@ref), [`XPA.get_server`](@ref) and [`XPA.get_message`](@ref) can
-be used to retrieve the contents of an object of type `XPA.Reply`.
 
 # See also
 
