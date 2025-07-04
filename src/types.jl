@@ -12,6 +12,7 @@
 
 const Byte = UInt8
 const NULL = Ptr{Byte}(0)
+const EMPTY_STRING = ""
 
 """
 
@@ -70,22 +71,75 @@ is an alias for `Tuple{Vararg{T}}`
 """
 const TupleOf{T} = Tuple{Vararg{T}}
 
+# Lightweight structure representing a single entry of something which must implement part
+# of the abstract vector API.
+struct Entry{T}
+    parent::T
+    index::Int
+    # Inner constructor ensures validity of index. Most operations on a single entry takes
+    # much more time than checking the index so the extra cost is negligible.
+    function Entry(A::T, i::Int) where {T}
+        firstindex(A) ≤ i ≤ lastindex(A) || throw(BoundsError(A, i))
+        return new{T}(A, i)
+    end
+end
+
 """
     XPA.Reply
 
 type of structure used to store the answer(s) of [`XPA.get`](@ref) and [`XPA.set`](@ref)
-requests. Method `length` applied to an object of type `Reply` yields the number of replies.
+requests.
+
+Assuming `A` is an instance of `XPA.Reply`, it can be used as an abstract vector and `A[i]`
+yields the `i`-th answer in `A` which implements the following properties:
+
+```julia
+A[i].server       # identifier of the XPA server which sent the `i`-th answer
+A[i].data(...)    # data associated with `i`-th answer (see below)
+A[i].has_message  # whether `i`-th answer contains a message
+A[i].has_error    # whether `i`-th answer has an error
+A[i].message      # message or error message associated with `i`-th answer
+```
+
+To retrieve the data associated with a reply, the `data` property can be used as follows:
+
+```julia
+A[i].data()                  # a vector of bytes
+A[i].data(String)            # a single ASCII string
+A[i].data(T)                 # a single value of type `T`
+A[i].data(Vector{T})         # the largest possible vector with elements of type `T`
+A[i].data(Array{T}, dims...) # an array of element type `T` and size `dims...`
+```
+
+If `Base.Memory` exists `Vector{T}` can be replaced by `Memory{T}`.
+Method `length` applied to an object of type `Reply` yields the number of replies.
 Methods [`XPA.get_data`](@ref), [`XPA.get_server`](@ref) and [`XPA.get_message`](@ref) can
 be used to retrieve the contents of an object of type `XPA.Reply`.
 
+# See also
+
+[`XPA.get`](@ref), [`XPA.set`](@ref), and [`XPA.has_errors`](@ref).
+
 """
-mutable struct Reply
+mutable struct Reply <: AbstractVector{Entry{Reply}}
     replies::Int
     lengths::Memory{Csize_t}
     buffers::Memory{Ptr{Byte}}
+    # Inner constructor allocates `lengths` vector to store data lengths, and `buffers`
+    # vector to store raw data, server name, and message. These vectors must be initially
+    # zero-filled.
+    function Reply(nmax::Int)
+        lengths = fill!(Memory{Csize_t}(undef, nmax), zero(Csize_t))
+        buffers = fill!(Memory{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
+        return finalizer(_free, new(0, lengths, buffers))
+    end
 end
 
-Base.length(rep::Reply) = rep.replies
+# Private structure to access the data associated with a single reply.
+struct DataAccessor
+    parent::eltype(Reply)
+    DataAccessor(A::eltype(Reply)) = new(A)
+end
 
 abstract type Callback end
 

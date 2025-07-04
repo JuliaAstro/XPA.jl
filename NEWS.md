@@ -34,6 +34,18 @@
 
 - Previous methods for `XPA.list` and `XPA.find` have been deprecated.
 
+- Reply object returned by `XPA.get` is now an abstract vector of answers which have
+  properties that replace the need to call accessors. Assuming `rep` is such an object,
+  these properties are listed in the following table.
+
+  | New syntax with properties      | Old syntax with accessors                |
+  |:--------------------------------|:-----------------------------------------|
+  | `rep[i].server`                 | `XPA.get_server(rep, i)`                 |
+  | `rep[i].message`                | `XPA.get_message(rep, i)`                |
+  | `rep[i].has_error`              | `XPA.has_error(rep, i)`                  |
+  | `rep[i].has_message`            | `XPA.has_message(rep, i)`                |
+  | `rep[i].data(args...; kwds...)` | `XPA.get_data(args..., rep, i; kwds...)` |
+
 - Private abstract type `XPA.Handle` removed. Use `Union{XPA.Client,XPA.Server}` instead.
 
 

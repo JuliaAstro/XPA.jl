@@ -324,11 +324,10 @@ function select_interactively(iter)
     return nothing
 end
 
-
 """
     XPA.address(apt) -> addr
 
-yields the address of XPA accesspoint `apt` which can be: an instance of `XPA.AccessPoint`,
+yields the address of XPA access-point `apt` which can be: an instance of `XPA.AccessPoint`,
 a string with a valid XPA server address or a server `class:name` identifier. In the latter
 case, [`XPA.find`](@ref) is called to find a matching server which is much longer.
 
@@ -336,7 +335,7 @@ case, [`XPA.find`](@ref) is called to find a matching server which is much longe
 address(apt::XPA.AccessPoint) =
     apt.addr
 
-function address(apt::AbstractString)
+function address(apt::AbstractString) # FIXME
     i = findfirst(isequal(':'), apt)
     if (i === nothing ||
         tryparse(UInt, apt[1:i-1],  base = 16) === nothing ||
@@ -373,7 +372,7 @@ all the answer(s) from the XPA server(s). The following keywords are available:
   (temporarily) overrides the settings in environment variable `XPA_NSUSERS`. By default and
   if the environment variable `XPA_NSUSERS` is not set, the access-point must be owned the
   caller (see Section *Distinguishing Users* in XPA documentation). The value is a string
-  wich may be a list of comma separated user names or `"*"` to access all users on a given
+  which may be a list of comma separated user names or `"*"` to access all users on a given
   machine.
 
 If `T` and, possibly, `dims` are specified, a single answer and no errors are expected (as
@@ -442,6 +441,10 @@ function get(::Type{Array{T,N}}, dims::NTuple{N,Integer},
     get_data(Array{T,N}, dims, _get1(args...; kwds...))
 end
 
+function get(::Type{A}, dims::Dims{N}, args...; kwds...) where {T,N,A<:AbstractArray{T,N}}
+    get_data(Array{T,N}, dims, _get1(args...; kwds...))
+end
+
 function get(::Type{String}, args...; kwds...)
     return get_data(String, _get1(args...; kwds...))
 end
@@ -449,22 +452,46 @@ end
 function _get(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, nmax::Int, throwerrors::Bool,
               users::Union{Nothing,AbstractString})
-    lengths = fill!(Memory{Csize_t}(undef, nmax), 0)
-    buffers = fill!(Memory{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
+    A = Reply(nmax)
+    lengths = _lengths(A)
+    buffers = _buffers(A)
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
     prevusers = _override_nsusers(users)
-    replies = GC.@preserve lengths buffers ccall(
+    got = GC.@preserve A ccall(
         (:XPAGet, libxpa), Cint,
         (Client, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
          Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
         conn, apt, params, mode, address, lengths,
         address + offset, address + 2*offset, nmax)
     _restore_nsusers(prevusers)
-    0 ≤ replies ≤ nmax || error("unexpected number of replies from XPAGet")
-    rep = finalizer(_free, Reply(replies, lengths, buffers))
-    throwerrors && verify(rep; throwerrors=true)
-    return rep
+    0 ≤ got ≤ nmax || throw(AssertionError("unexpected number of replies from `XPAGet`"))
+    setfield!(A, :replies, Int(got)::Int)
+    throwerrors && verify(A; throwerrors=true)
+    return A
+end
+
+function _set(conn::Client, apt::AbstractString, params::AbstractString,
+              mode::AbstractString, data::Union{NullBuffer,DenseArray},
+              nmax::Int, throwerrors::Bool,
+              users::Union{Nothing,AbstractString})
+    A = Reply(nmax)
+    lengths = _lengths(A)
+    buffers = _buffers(A)
+    address = pointer(buffers)
+    offset = nmax*sizeof(Ptr{Byte})
+    prevusers = _override_nsusers(users)
+    got = GC.@preserve A ccall(
+        (:XPASet, libxpa), Cint,
+        (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
+         Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
+        conn, apt, params, mode, data, sizeof(data),
+        address + offset, address + 2*offset, nmax)
+    _restore_nsusers(prevusers)
+    0 ≤ got ≤ nmax || throw(AssertionError("unexpected number of replies from `XPASet`"))
+    setfield!(A, :replies, Int(got)::Int)
+    throwerrors && verify(A; throwerrors=true)
+    return A
 end
 
 """
@@ -497,49 +524,213 @@ function _restore_nsusers(users::AbstractString)
     nothing
 end
 
-"""
-    _free(rep::Reply)
-"""
-function _free(rep::Reply)
-    nmax = _nmax(rep)
-    fill!(rep.lengths, 0)
-    for i in 0:2,
-        j in 1:length(rep)
-        k = i*nmax + j
-        if (ptr = rep.buffers[k]) != NULL
-            rep.buffers[k] = NULL
+#-------------------------------------------------------------------------------------------
+
+# Accessors for `XPA.Entry`.
+Base.parent(A::Entry) = getfield(A, :parent)
+index(A::Entry) = getfield(A, :index)
+
+# `XPA.Reply` has no property.
+Base.propertynames(A::Reply) = ()
+Base.getproperty(A::Reply, key::Symbol) = throw(KeyError(key))
+Base.setproperty!(A::Reply, key::Symbol, x) = throw(KeyError(key))
+
+# Private accessors for `XPA.Reply`. Object `A` must be preserved from being garbage collected.
+_buffers(A::Reply) = getfield(A, :buffers)
+_lengths(A::Reply) = getfield(A, :lengths)
+_nbufs(A::Reply) = length(_lengths(A))
+
+# Abstract vector API for `XPA.Reply`.
+Base.length(A::Reply) = getfield(A, :replies)
+Base.firstindex(A::Reply) = 1
+Base.lastindex(A::Reply) = length(A)
+Base.eachindex(A::Reply) = Base.OneTo(length(A))
+Base.eachindex(::IndexLinear, A::Reply) = eachindex(A)
+Base.IndexStyle(::Type{<:Reply}) = IndexLinear()
+Base.getindex(A::Reply, i::Int) = Entry(A, i)
+Base.size(A::Reply) = (length(A),)
+Base.axes(A::Reply) = (eachindex(A),)
+
+# Finalizer for a `XPA.Reply` instance.
+function _free(A::Reply)
+    fill!(_lengths(A), 0)
+    B = _buffers(A)
+    @inbounds for i in eachindex(B)
+        ptr = B[i]
+        if !isnull(ptr)
+            B[i] = NULL
             _free(ptr)
         end
     end
+    return nothing
 end
 
-# i-th server name is at index i + nmax.
-_get_srv(rep::Reply, i::Integer) = _get_srv(rep, Int(i))
-_get_srv(rep::Reply, i::Int) :: Ptr{Byte} =
-    (1 ≤ i ≤ length(rep) ? rep.buffers[i + _nmax(rep)] : NULL)
-
-# i-th message is at index i + 2*nmax.
-_get_msg(rep::Reply, i::Integer) = _get_msg(rep, Int(i))
-_get_msg(rep::Reply, i::Int) :: Ptr{Byte} =
-    (1 ≤ i ≤ length(rep) ? rep.buffers[i + _nmax(rep)*2] : NULL)
-
-# i-th data buffer is at index i.
-_get_buf(rep::Reply, i::Integer, preserve::Bool) =
-    _get_buf(rep, Int(i), preserve)
-
-function _get_buf(rep::Reply, i::Int, preserve::Bool) :: Tuple{Ptr{Byte},Int}
-    local ptr::Ptr{Byte}, len::Int
-    if 1 ≤ i ≤ length(rep)
-        ptr, len = rep.buffers[i], rep.lengths[i]
-        (ptr == NULL ? len == 0 : len ≥ 0) || error("invalid buffer length")
-        if ! preserve && ptr != NULL
-            rep.lengths[i] = 0
-            rep.buffers[i] = NULL
-        end
-    else
-        ptr, len = NULL, 0
+# Unsafe accessors for the reply contents. Object `A` must be preserved from being garbage
+# collected and index `i` must be valid.
+#
+# In the `buffers` member, the storage is as follows:
+#
+# - i-th data buffer is at index i;
+# - i-th server name is at index i + nbufs;
+# - i-th message is at index i + 2*nbufs.
+#
+_unsafe_server( A::Reply, i::Int) = @inbounds _buffers(A)[i + _nbufs(A)]
+_unsafe_message(A::Reply, i::Int) = @inbounds _buffers(A)[i + _nbufs(A)*2]
+function _unsafe_data(A::Reply, i::Int)
+    @inbounds begin
+        ptr = _buffers(A)[i]
+        len = _lengths(A)[i]
+        (isnull(ptr) ? len == 0 : len ≥ 0) || throw(AssertionError("invalid buffer length"))
+        return (ptr, len)
     end
-    return (ptr, len)
+end
+
+# API for `XPA.DataAccessor`.
+Base.parent(A::DataAccessor) = getfield(A, :parent)
+@inline (A::DataAccessor)(args...; kwds...) = get_data(args..., parent(A); kwds...)
+
+# API for `eltype(XPA.Reply)`. This temporary object represent a single reply entry and
+# whose index has been checked by the constructor.
+Base.propertynames(A::eltype(Reply)) = (:data, :has_error, :has_message, :message, :server)
+
+Base.getproperty(A::eltype(Reply), key::Symbol) =
+   key === :data        ? DataAccessor(A) :
+   key === :has_error   ? has_error(   A) :
+   key === :has_message ? has_message( A) :
+   key === :message     ? get_message( A) :
+   key === :server      ? get_server(  A) :
+   throw(KeyError(key))
+
+"""
+    XPA.get_message(rep::XPA.Reply, i=1)
+    XPA.get_message(rep[i])
+    rep[i].message
+
+yields the message associated with the `i`-th answer in XPA reply `rep`. An empty string is
+returned if there is no message.
+
+!!! note
+    In the future `XPA.get_message` will be deprecated; `rep[i].message` is the recommended
+    syntax.
+
+# See also
+
+[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
+[`XPA.get_data`](@ref) and [`XPA.get_server`](@ref).
+
+"""
+function get_message(A::eltype(Reply))
+    B, i = parent(A), index(A)
+    return GC.@preserve B _string(_unsafe_message(B, i))
+end
+
+"""
+    XPA.get_server(rep::XPA.Reply, i=1)
+    XPA.get_server(rep[i])
+    rep[i].server
+
+yields a string identifying the server who provided the `i`-th answer in XPA reply `rep`.
+
+!!! note
+    In the future `XPA.get_server` will be deprecated; `rep[i].server` is the recommended
+    syntax.
+
+# See also
+
+[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref),
+[`XPA.get_data`](@ref) and [`XPA.get_message`](@ref).
+
+"""
+function get_server(A::eltype(Reply))
+    B, i = parent(A), index(A)
+    return GC.@preserve B _string(_unsafe_server(B, i))
+end
+
+# `_string(ptr)` copies bytes at address `ptr` as a string, returning an empty
+# string if `ptr` is `NULL`.
+_string(ptr::Ptr{Byte}) = isnull(ptr) ? EMPTY_STRING : unsafe_string(ptr)
+
+"""
+    XPA.has_error(rep::XPA.Reply, i=1)
+    XPA.has_error(rep[i])
+    rep[i].has_error
+
+yields whether `i`-th answer in XPA reply `rep` has an error whose message is given by
+`rep[i].message`.
+
+!!! note
+    In the future `XPA.has_error` will be deprecated; `rep[i].has_error` is the recommended
+    syntax.
+
+# See also
+
+[`XPA.get`](@ref), [`XPA.get_message`](@ref), [`XPA.has_message`](@ref),
+[`XPA.get_data`](@ref), and [`XPA.get_server`](@ref),
+
+"""
+function has_error(A::eltype(Reply))
+    B, i = parent(A), index(A)
+    return GC.@preserve B _starts_with(_unsafe_message(B, i), _XPA_ERROR)
+end
+const _XPA_ERROR   = "XPA\$ERROR "
+
+"""
+    XPA.has_message(rep::XPA.Reply, i=1)
+    XPA.has_message(rep[i])
+    rep[i].has_message
+
+yields whether `i`-th answer in XPA reply `rep` has an associated message that is given by
+`rep[i].message`.
+
+!!! note
+    In the future `XPA.has_message` will be deprecated; `rep[i].has_message` is the
+    recommended syntax.
+
+# See also
+
+[`XPA.get`](@ref), [`XPA.get_message`](@ref), [`XPA.has_error`](@ref),
+[`XPA.get_data`](@ref), and [`XPA.get_server`](@ref),
+
+"""
+function has_message(A::eltype(Reply))
+    B, i = parent(A), index(A)
+    return GC.@preserve B _starts_with(_unsafe_message(B, i), _XPA_MESSAGE)
+end
+const _XPA_MESSAGE = "XPA\$MESSAGE "
+
+function _starts_with(ptr::Ptr{UInt8}, str::String)
+    if isnull(ptr)
+        return false
+    end
+    @inbounds for i in 1:ncodeunits(str)
+        if unsafe_load(ptr, i) != codeunit(str, i)
+            return false
+        end
+    end
+    return true
+end
+
+for func in (:get_message, :get_server, :has_message, :has_error)
+    @eval $func(A::Reply, i::Integer=1) = $func(A[i])
+end
+
+"""
+    XPA.has_errors(rep::Reply) -> Bool
+
+yields whether answer `rep` contains any error messages.
+
+# See also
+
+[`XPA.get`](@ref), [`XPA.has_error`](@ref), and [`XPA.get_message`](@ref).
+
+"""
+function has_errors(A::Reply)
+    @inbounds for Aᵢ in A
+        if Aᵢ.has_error
+            return true
+        end
+    end
+    return false
 end
 
 """
@@ -564,142 +755,67 @@ otherwise. The call `_nmax(rep::Reply)` yields the maximum number of
 answers that can be stored in `rep`.
 """
 _nmax(n::Integer) = (n == -1 ? Int(getconfig("XPA_MAXHOSTS")) : Int(n))
-_nmax(rep::Reply) = length(rep.lengths)
 
-"""
-    XPA.get_server(rep, i=1)
+function Base.show(io::IO, A::eltype(Reply))
+    print(io, "XPA answer: ")
+    _show(io, A)
+    return nothing
+end
 
-yields the XPA identifier of the server which sent the `i`-th reply in XPA answer `rep`. An
-empty string is returned if there is no `i`-th reply.
+function _show(io::IO, A::eltype(Reply))
+    B, i = parent(A), index(A)
+    GC.@preserve B begin
+        print(io, "server = ", repr(A.server; context=io),
+              ", message = ", repr(A.message; context=io),
+              ", data = ")
+        ptr, len = _unsafe_data(B, i)
+        if isnull(ptr)
+            print(io, "NULL")
+        elseif len == 0
+            print(io, repr("";  context=io))
+        else
+            # Check whether all bytes in the data buffer are printable ASCII characters.
+            cstring = true
+            for j in 1:len
+                b = unsafe_load(ptr, j)
+                if !iszero(b & 0x80)
+                    # Not ASCII.
+                    cstring = false
+                    break
+                end
+                c = Char(b)
+                if !(isprint(c) || c == '\n' || c == '\r' || c == '\t')
+                    # Not Printable.
+                    cstring = false
+                    break
+                end
+            end
+            if cstring
+                print(io, repr(unsafe_string(ptr, len); context=io))
+            else
+                print(io, len, (len > 1 ? " bytes" : " byte"))
+            end
+        end
+    end
+    return nothing
+end
 
-# See also
+Base.show(io::IO, ::MIME"text/plain", A::Reply) = show(io, A)
 
-[`XPA.get`](@ref) and [`XPA.get_message`](@ref).
-
-"""
-get_server(rep::Reply, i::Integer=1) = _string(_get_srv(rep, i))
-
-"""
-    XPA.get_message(rep, i=1)
-
-yields the message associated with the `i`-th reply in XPA answer `rep`. An empty string is
-returned if there is no `i`-th reply.
-
-# See also
-
-[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.has_error`](@ref), and
-[`XPA.get_server`](@ref).
-
-"""
-get_message(rep::Reply, i::Integer=1) = _string(_get_msg(rep, i))
-
-"""
-    XPA.has_error(rep, i=1) -> Bool
-
-yields whether `i`-th XPA answer `rep` contains an error message. The error message can be
-retrieved by calling `XPA.get_message(rep, i)`.
-
-# See also
-
-[`XPA.get`](@ref), [`XPA.has_message`](@ref), [`XPA.get_message`](@ref).
-
-"""
-has_error(rep::Reply, i::Integer=1) =
-    _startswith(_get_msg(rep, i), _XPA_ERROR)
-
-const _XPA_ERROR_PREFIX = "XPA\$ERROR "
-const _XPA_ERROR = Tuple(map(Byte, collect(_XPA_ERROR_PREFIX)))
-
-function Base.show(io::IO, rep::Reply)
+function Base.show(io::IO, A::Reply)
     print(io, "XPA.Reply")
-    n = length(rep)
+    n = length(A)
     if n == 0
         print(io, " (no replies)")
     else
         print(io, " (", n, " repl", (n > 1 ? "ies" : "y"), "):\n")
         for i in 1:n
-            # Check whether all bytes in the data buffer are printable ASCII
-            # characters.
-            print(io, "  ", i, ": server = ",
-                  repr(get_server(rep, i); context=io), ", message = ",
-                  repr(get_message(rep, i); context=io), ", data = ")
-            ptr, len = _get_buf(rep, i, true)
-            if ptr == C_NULL
-                print(io, "NULL")
-            elseif len == 0
-                print(io, repr("";  context=io))
-            else
-                cstring = true
-                for j in 1:len
-                    b = unsafe_load(ptr, j)
-                    if (b & 0x80) != 0
-                        # Not ASCII.
-                        cstring = false
-                        break
-                    end
-                    c = Char(b)
-                    if !(isprint(c) || c == '\n' || c == '\r' || c == '\t')
-                        # Not Printable.
-                        cstring = false
-                        break
-                    end
-                end
-                if cstring
-                    print(io, repr(unsafe_string(ptr, len);  context=io))
-                else
-                    print(io, len, (len > 1 ? " bytes" : " byte"))
-                end
-            end
+            print(io, "  ", i, ": ")
+            _show(io, A[i])
             i < n && print(io, "\n")
         end
     end
-end
-
-"""
-    XPA.has_errors(rep::Reply) -> Bool
-
-yields whether answer `rep` contains any error messages.
-
-# See also
-
-[`XPA.get`](@ref), [`XPA.has_error`](@ref), and [`XPA.get_message`](@ref).
-
-"""
-function has_errors(rep::Reply) :: Bool
-    for i in 1:length(rep)
-        if has_error(rep, i)
-            return true
-        end
-    end
-    return false
-end
-
-"""
-    XPA.has_message(rep::Reply, i=1) -> Bool
-
-yields whether `i`-th XPA answer `rep` contains an error message.
-
-# See also
-
-[`XPA.get`](@ref) and [`XPA.has_message`](@ref).
-
-"""
-has_message(rep::Reply, i::Integer=1) =
-    _startswith(_get_msg(rep, i), _XPA_MESSAGE)
-
-const _XPA_MESSAGE_PREFIX = "XPA\$MESSAGE "
-const _XPA_MESSAGE = Tuple(map(Byte, collect(_XPA_MESSAGE_PREFIX)))
-
-function _startswith(ptr::Ptr{Byte}, tup::NTuple{N,Byte}) where {N}
-    if ptr == NULL
-        return false
-    end
-    for i in 1:N
-        if unsafe_load(ptr, i) != tup[i]
-            return false
-        end
-    end
-    return true
+    return nothing
 end
 
 """
@@ -736,12 +852,14 @@ function verify(rep::Reply, i::Integer; throwerrors::Bool=false)
 end
 
 """
-    XPA.get_data([T, [dims,]] rep, i=1; preserve=false)
+    XPA.get_data([T, [dims,]] rep::XPA.Reply, i=1; preserve=false)
+    XPA.get_data([T, [dims,]] rep[i]; preserve=false)
+    rep[i].data([T, [dims,]]; preserve=false)
 
-yields the data associated with the `i`-th reply in XPA answer `rep`. The returned value
+yields the data associated with the `i`-th answer in XPA reply `rep`. The returned value
 depends on the optional leading arguments `T` and `dims`:
 
-* If neither `T` nor `dims` are specified, a vector of bytes (`UInt8`) is returned.
+* If neither `T` nor `dims` are specified, a vector of bytes (`$Byte`) is returned.
 
 * If only `T` is specified, it can be `String` to return a string interpreting the data as
   ASCII characters or a type like `Vector{S}` to return the largest vector of elements of
@@ -751,117 +869,113 @@ depends on the optional leading arguments `T` and `dims`:
   `Array{S,N}` and `dims` a list of `N` dimensions to retrieve the data as an array of type
   `Array{S,N}`.
 
-Keyword `preserve` can be used to specify whether or not to preserve the internal data
-buffer in `rep` for another call to `XPA.get_data`. By default, `preserve=true` when `T =
-String` is specified and `preserve=false` otherwise.
+Keyword `preserve` specifies whether or not to preserve the internal data buffer in `rep`
+for another call to `XPA.get_data`. This keyword is ignored if the result cannot directly
+use the internal buffer. By default, `preserve=true`.
 
 In any cases, the type of the result is predictable, so there should be no type instability
 issue.
+
+!!! note
+    In the future `XPA.get_data` will be deprecated; `rep[i].data(...)` is the recommended
+    syntax.
 
 # See also
 
 [`XPA.get`](@ref), [`XPA.get_message`](@ref), and [`XPA.get_server`](@ref).
 
 """
-get_data(rep::Reply, args...; kwds...) =
-    get_data(Vector{Byte}, rep, args...; kwds...)
-
-function get_data(::Type{String}, rep::Reply, i::Integer=1;
-                  preserve::Bool = true) :: String
-    ptr, len = _get_buf(rep, i, preserve)
-    ptr == NULL && return ""
-    str = unsafe_string(ptr, len)
-    preserve || _free(ptr)
-    return str
+function get_data(A::Reply, i::Integer=1; kwds...)
+    return get_data(A[i]; kwds...)
 end
 
-function get_data(::Type{Vector{T}}, rep::Reply, i::Integer=1;
-                  preserve::Bool = false) :: Vector{T} where {T}
-    isbitstype(T) || error("invalid Array element type")
-    ptr, len = _get_buf(rep, i, preserve)
-    cnt = div(len, sizeof(T))
-    if ptr == NULL || cnt ≤ 0
-        # Empty vector.
-        return T[]
-    elseif preserve
-        # Make a copy of the buffer in the form of a Julia vector.
-        return _memcpy!(Vector{T}(undef, cnt), ptr, cnt*sizeof(T))
-    else
-        # Transfer ownership of buffer to Julia.
-        return unsafe_wrap(Array, Ptr{T}(ptr), cnt, own=true)
+function get_data(::Type{T}, A::Reply, i::Integer=1; kwds...) where {T}
+    return get_data(T, A[i]; kwds...)
+end
+
+function get_data(::Type{T}, shape::ArrayShape, A::Reply, i::Integer=1;
+                  kwds...) where {T<:AbstractArray}
+    return get_data(T, shape, A[i]; kwds...)
+end
+
+# By default returns content as a vector of bytes.
+function get_data(A::eltype(Reply); kwds...)
+    return get_data(Memory{Byte}, A; kwds...)
+end
+
+# Convert content to a single ASCII string. `preserve` keyword is ignored because a copy is
+# made anyway.
+function get_data(::Type{String}, A::eltype(Reply); preserve::Bool = true)
+    B, i = parent(A), index(A)
+    GC.@preserve B begin
+        ptr, len = _unsafe_data(B, i)
+        return iszero(len) ? EMPTY_STRING : unsafe_string(ptr, len)
     end
 end
 
-function get_data(::Type{Array{T}}, dim::Integer,
-                  rep::Reply, i::Integer = 1;
-                  preserve::Bool = false) :: Vector{T} where {T}
-    return _get_buf(Vector{T}, _dimensions(dim), rep, i, preserve)
-end
-
-function get_data(::Type{Vector{T}}, dim::Integer,
-                  rep::Reply, i::Integer = 1;
-                  preserve::Bool = false) :: Vector{T} where {T}
-    return _get_buf(Vector{T}, _dimensions(dim), rep, i, preserve)
-end
-
-function get_data(::Type{Array{T}}, dims::NTuple{N,Integer},
-                  rep::Reply, i::Integer = 1;
-                  preserve::Bool = false) :: Array{T,N} where {T,N}
-    return _get_buf(Array{T,N}, _dimensions(dims), rep, i, preserve)
-end
-
-function get_data(::Type{Array{T,N}}, dims::NTuple{N,Integer},
-                  rep::Reply, i::Integer = 1;
-                  preserve::Bool = false) :: Array{T,N} where {T,N}
-    return _get_buf(Array{T,N}, _dimensions(dims), rep, i, preserve)
-end
-
-"""
-
-Private method `_get_buf(rep,i,preserve)` yields `(ptr,len)` the address and length (in
-bytes) of internal buffer corresponding to the data for the `i`-th reply in `rep`. If
-`preserve` is false, then the internal buffer is set to NULL and the caller is responsible
-to free it. If `i` is out of range or if there are no data associated with the `i`-th reply
-in `rep`, `(NULL,0)` is returned.
-
-The call:
-
-```julia
-_get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
-         rep::Reply, i::Integer, preserve::Bool)
-```
-
-yields the contents of the internal data buffer as a Julia array.
-
-"""
-function _get_buf(::Type{Array{T,N}}, dims::NTuple{N,Int},
-                  rep::Reply, i::Int, preserve::Bool) :: Array{T,N} where {T,N}
-    isbitstype(T) || error("invalid Array element type")
-    minimum(dims) ≥ 0 || error("invalid Array dimensions")
-    ptr, len = _get_buf(rep, i, preserve)
-    cnt = prod(dims)
-    cnt*sizeof(T) ≤ len || error("Array size too large for buffer")
-    if ptr == NULL || cnt ≤ 0
-        # Empty array.
-        return Array{T,N}(undef, dims)
-    elseif preserve
-        # Make a copy of the buffer in the form of a Julia array.
-        return _memcpy!(Array{T,N}(undef, dims), ptr, cnt*sizeof(T))
-    else
-        # Transfer ownership of buffer to Julia.
-        return unsafe_wrap(Array, Ptr{T}(ptr), dims, own=true)
+# Returns content as a single value. `preserve` keyword is ignored because a copy is made
+# anyway.
+function get_data(::Type{T}, A::eltype(Reply); preserve::Bool = true) where {T}
+    isbitstype(T) || throw(ArgumentError("value type `$T` is not plain data type"))
+    B, i = parent(A), index(A)
+    GC.@preserve B begin
+        ptr, nbytes = _unsafe_data(B, i)
+        sizeof(T) ≤ nbytes || throw_buffer_too_small(sizeof(T), nbytes)
+        return unsafe_load(Ptr{T}(ptr))
     end
 end
 
-_dimensions(dim::Integer) = (Int(dim),)
-_dimensions(dim::Int) = (dim,)
-_dimensions(dims::Tuple{}) = dims
-_dimensions(dims::TupleOf{Integer}) = map(Int, dims)
-_dimensions(dims::TupleOf{Int}) = dims
+# Returns content as a vector as long as possible.
+function get_data(::Type{R}, A::eltype(Reply); kwds...) where {T,R<:AbstractVector{T}}
+    (isbitstype(T) && sizeof(T) > 0) || throw(ArgumentError(
+        "unable to infer number of elements of type `$T`"))
+    nbytes = @inbounds _lengths(parent(A))[index(A)]
+    nelem = div(nbytes, sizeof(T))
+    return get_data(R, as_array_size(nelem), A; kwds...)
+end
 
-# _string(ptr) copies data at address ptr as a string, if ptr is NULL, an empty
-# string is returned.
-_string(ptr::Ptr{Byte}) = (ptr == NULL ? "" : unsafe_string(ptr))
+# Convert array shape to `Dims`.
+function get_data(::Type{T}, shape::ArrayShape, A::eltype(Reply);
+                  kwds...) where {T<:AbstractArray}
+    return get_data(T, as_array_size(shape), A; kwds...)
+end
+
+# Returns content as an array of given size and element type.
+function get_data(::Type{R}, dims::Dims{N}, A::eltype(Reply);
+                  preserve::Bool = true) where {T,N,R<:AbstractArray{T}}
+    R <: Union{Array,Memory} || throw(ArgumentError("unsupported array type `$R`"))
+    isbitstype(T) || throw(ArgumentError("array element type `$T` is not plain data type"))
+    !has_ndims(R) || ndims(R) == N || throw(DimensionMismatch(
+        "result type `$R` incompatible with $N-dimensional shape"))
+    B, i = parent(A), index(A)
+    ptr, nbytes = _unsafe_data(B, i)
+    nelem = 1
+    for dim in dims
+        dim ≥ 0 || throw(ArgumentError("invalid dimension(s)"))
+        nelem *= dim
+    end
+    nelem*sizeof(T) ≤ nbytes || throw_buffer_too_small(nelem*sizeof(T), nbytes)
+    GC.@preserve B begin
+        if R <: Array{T} && !preserve && nelem > 0
+            # Transfer ownership of buffer to Julia.
+            @inbounds begin
+                # It is better to not free than free more than once, so forget buffer first.
+                _buffers(B)[i] = NULL
+                _lengths(B)[i] = 0
+            end
+            return unsafe_wrap(Array, Ptr{T}(ptr), dims; own=true)
+        else
+            # Create a new array and copy contents.
+            return _memcpy!(R(undef, dims)::R, ptr, nelem*sizeof(T))
+        end
+    end
+end
+
+@noinline throw_buffer_too_small(req::Integer, got::Integer) = throw(DimensionMismatch(
+    "$got available byte(s) in reply data, less than $req requested byte(s)"))
+
+has_ndims(::Type{<:AbstractArray}) = false
+has_ndims(::Type{<:AbstractArray{<:Any,N}}) where {N} = true
 
 """
     XPA.set([conn,] apt, args...; data=nothing, kwds...) -> rep
@@ -920,28 +1034,6 @@ end
 
 set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
     set(connection(), apt, join_arguments(args); kwds...)
-
-function _set(conn::Client, apt::AbstractString, params::AbstractString,
-              mode::AbstractString, data::Union{NullBuffer,DenseArray},
-              nmax::Int, throwerrors::Bool,
-              users::Union{Nothing,AbstractString})
-    lengths = fill!(Memory{Csize_t}(undef, nmax), 0)
-    buffers = fill!(Memory{Ptr{Byte}}(undef, nmax*3), Ptr{Byte}(0))
-    address = pointer(buffers)
-    offset = nmax*sizeof(Ptr{Byte})
-    prevusers = _override_nsusers(users)
-    replies = GC.@preserve lengths buffers ccall(
-        (:XPASet, libxpa), Cint,
-        (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
-         Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
-        conn, apt, params, mode, data, sizeof(data),
-        address + offset, address + 2*offset, nmax)
-    _restore_nsusers(prevusers)
-    0 ≤ replies ≤ nmax || error("unexpected number of replies from XPASet")
-    rep = finalizer(_free, Reply(replies, lengths, buffers))
-    throwerrors && verify(rep; throwerrors=true)
-    return rep
-end
 
 """
     buf = XPA.buffer(data)
