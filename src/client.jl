@@ -731,14 +731,9 @@ join_arguments(args::Tuple{String}) = args[1]
 join_arguments(args::Tuple{Any}) = string(args[1])
 join_arguments(::Tuple{}) = ""
 
-"""
-    _nmax(n::Integer)
-
-Private method. Yields the maximum number of expected answers to a get/set
-request.  The result is `n` if `n ≥ 1` or `getconfig("XPA_MAXHOSTS")`
-otherwise. The call `_nmax(rep::Reply)` yields the maximum number of
-answers that can be stored in `rep`.
-"""
+# `_nmax(n::Integer)` yields the maximum number of expected answers to a get/set request.
+# The result is `n` if `n ≥ 1` or `getconfig("XPA_MAXHOSTS")` otherwise. The call
+# `_nmax(rep::Reply)` yields the maximum number of answers that can be stored in `rep`.
 _nmax(n::Integer) = (n == -1 ? Int(getconfig("XPA_MAXHOSTS")) : Int(n))
 
 function Base.show(io::IO, A::eltype(Reply))
@@ -791,9 +786,9 @@ function Base.show(io::IO, A::Reply)
     print(io, "XPA.Reply")
     n = length(A)
     if n == 0
-        print(io, " (no replies)")
+        print(io, " (no answers)")
     else
-        print(io, " (", n, " repl", (n > 1 ? "ies" : "y"), "):\n")
+        print(io, " (", n, " answer", (n > 1 ? "s" : ""), "):\n")
         for i in 1:n
             print(io, "  ", i, ": ")
             _show(io, A[i])
