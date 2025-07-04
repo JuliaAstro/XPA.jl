@@ -338,7 +338,7 @@ function store!(buf::SendBuffer, ptr::Ptr{Byte}, len::Integer)
     end
     if ptr != NULL
         len > 0 || error("invalid number of bytes ($len) for non-NULL pointer")
-        unsafe_store!(buf.bufptr, _memcpy(_malloc(len), ptr, len))
+        unsafe_store!(buf.bufptr, _memcpy!(_malloc(len), ptr, len))
         unsafe_store!(buf.lenptr, len)
     else
         len == 0 || error("invalid number of bytes ($len) for NULL pointer")
@@ -430,20 +430,16 @@ end
 Base.checkbounds(::Type{T}, buf::ReceiveBuffer, i::Int=1) where {T} =
     1 ≤ i && i*sizeof(T) ≤ sizeof(buf) || error("out of range index")
 
-function peek(::Type{Vector{T}},
-              buf::ReceiveBuffer;
-              temporary::Bool=false)::Vector{T} where {T}
-    @assert isbitstype(T)
-    local vec::Vector{T}
+function peek(::Type{R}, buf::ReceiveBuffer;
+              temporary::Bool=false) where {T,R<:Union{Vector{T},Memory{T}}}
+    (isbitstype(T) && sizeof(T) > 0) || throw(ArgumentError(
+        "unable to infer number of elements of type `$T`"))
     len = div(sizeof(buf), sizeof(T))
     if temporary
-        vec = unsafe_wrap(Array, Ptr{T}(pointer(buf)), len)
+        return unsafe_wrap(Array, Ptr{T}(pointer(buf)), len)
     else
-        vec = Vector{T}(undef, len)
-        nbytes = sizeof(T)*len
-        nbytes > 0 && _memcpy(pointer(vec), pointer(buf), nbytes)
+        return _memcpy!(Vector{T}(undef, len), pointer(buf), sizeof(T)*len)
     end
-    return vec
 end
 
 function peek(::Type{Vector{T}},

@@ -208,49 +208,26 @@ for (func, (memb, defval)) in (:get_comm_status  => (:status,   0),
     end
 end
 
-"""
-    _malloc(size)
-
-Dynamically allocates `size` bytes and returns the corresponding byte pointer
-(type `Ptr{UInt8}`).
-
-!!! note
-    This is just a wrapper around `Libc.malloc` that does null-checking.
-"""
-function _malloc(len::Integer) :: Ptr{Byte}
-    ptr = Libc.malloc(len)
-    ptr == NULL && throw(OutOfMemoryError())
+# `_malloc(n)` returns a pointer to `n` bytes of freshly allocated memory throwing an
+# `OutOfMemoryError` if the pointer is NULL.
+function _malloc(n::Integer)
+    ptr = Libc.malloc(n)
+    isnull(ptr) && throw(OutOfMemoryError())
     return ptr
 end
 
-"""
-    _free(ptr)
+# `_free(ptr)` frees dynamically allocated memory at address given by `ptr` unless it is
+# NULL.
+_free(ptr::Ptr) = isnull(ptr) || Libc.free(ptr)
 
-Frees dynamically allocated memory at address given by `ptr` unless it is NULL.
-
-!!! note
-    This is just a wrapper around `Libc.free` that does avoids freeing NULL pointers.
-"""
-_free(ptr::Ptr{T}) where T = (ptr == C_NULL || Libc.free(ptr))
-
-"""
-    _memcpy!(dst, src, len) -> dst
-
-Copies `len` bytes from address `src` to destination `dst`.
-"""
-function _memcpy!(dst::Ptr, src::Ptr, len::Integer)
-    if len > 0
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-              dst, src, len)
-    end
-    return dst
-end
-
-function _memcpy!(dst::AbstractArray, src::Ptr, len::Integer)
-    len == sizeof(dst) || error("bad number of bytes to copy")
-    if len > 0
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-              dst, src, len)
+# `_memcpy!(dst, src, n)` calls C's `memcpy` to copy `n` bytes from `src` to `dst` and
+# returns `dst`. The operation is *unsafe* because the validity of the arguments is not
+# checked except that nothing is done if `n ≤ 0`. If `src` and/or `dst` are objects that
+# implement `y = Base.cconvert(Ptr{Cvoid}, x)` and then `Base.unsafe_convert(Ptr{Cvoid},
+# y)`, they are automatically preserved from being garbage collected during the call.
+function _memcpy!(dst, src, n::Integer)
+    if n > zero(n)
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, src, n)
     end
     return dst
 end
