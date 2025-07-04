@@ -307,7 +307,7 @@ end
 menu_string(str::AbstractString) = str
 menu_string(sym::Symbol) = string(sym)
 menu_string(apt::AccessPoint) =
-    "$(apt.class):$(apt.name) [address=\"$(apt.addr)\", user=\"$(apt.user)\"]"
+    "$(apt.class):$(apt.name) [address=\"$(apt.address)\", user=\"$(apt.user)\"]"
 
 function select_interactively(iter)
     options = ["(none)"]
@@ -332,8 +332,7 @@ a string with a valid XPA server address or a server `class:name` identifier. In
 case, [`XPA.find`](@ref) is called to find a matching server which is much longer.
 
 """
-address(apt::XPA.AccessPoint) =
-    apt.addr
+address(apt::XPA.AccessPoint) = apt.address
 
 function address(apt::AbstractString) # FIXME
     i = findfirst(isequal(':'), apt)
@@ -344,6 +343,8 @@ function address(apt::AbstractString) # FIXME
     end
     return apt
 end
+
+Base.isopen(apt::XPA.AccessPoint) = !isempty(apt.address)
 
 """
     XPA.get([T, [dims,]] [conn,] apt, args...; kwds...)

@@ -46,6 +46,10 @@
   | `rep[i].has_message`            | `XPA.has_message(rep, i)`                |
   | `rep[i].data(args...; kwds...)` | `XPA.get_data(args..., rep, i; kwds...)` |
 
+- Properties of `apt::XPA.AccessPoint` are the recommended way to retrieve the content of
+  `apt`. For example, use `apt.address` instead of `XPA.address(apt)`. Method `isopen(apt)`
+  yields whether the address in `apt` is a non-empty string.
+
 - Private abstract type `XPA.Handle` removed. Use `Union{XPA.Client,XPA.Server}` instead.
 
 

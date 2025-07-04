@@ -228,14 +228,14 @@ const GET    = SET << 1
 const INFO   = SET << 2
 
 """
-    apt = XPA.AccessPoint(class, name, addr, user, access)
+    apt = XPA.AccessPoint(class, name, address, user, access)
 
 builds a structure representing an XPA server for a client. The arguments reflect the
 properties of the object:
 
     apt.class   # access-point class
     apt.name    # access-point name
-    apt.addr    # server address (host:port for inet socket, path for unix socket)
+    apt.address # server address (host:port for inet socket, path for unix socket)
     apt.user    # access-point owner
     apt.access  # allowed access
 
@@ -245,6 +245,8 @@ as follows:
      !iszero(apt.access & $(Int(SET))) # holds if `set` command allowed
      !iszero(apt.access & $(Int(GET))) # holds if `get` command allowed
      !iszero(apt.access & $(Int(INFO))) # holds if `info` command allowed
+
+Method `isopen(apt)` yields whether `address` is not an empty string.
 
 # See also
 
@@ -257,7 +259,7 @@ provided function.
 struct AccessPoint
     class::String
     name::String
-    addr::String
+    address::String
     user::String
     access::UInt
 end
