@@ -819,7 +819,7 @@ function verify(rep::Reply, i::Integer; throwerrors::Bool=false)
         if throwerrors
             # Strip error message prefix (which we know that it is present).
             msg = get_message(rep, i)
-            j = length(_XPA_ERROR_PREFIX) + 1
+            j = length(_XPA_ERROR) + 1
             while j ≤ length(msg) && isspace(msg[j])
                 j += 1
             end
