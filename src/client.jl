@@ -403,51 +403,35 @@ function get(conn::Client,
     return _get(conn, apt, cmd, mode, _nmax(nmax), throwerrors, users)
 end
 
-get(apt::AccessPoint, args...; kwds...) =
-    get(address(apt), args...; kwds...)
-
-get(apt::AbstractString, args...; kwds...) =
+get(apt::Union{AccessPoint,AbstractString}, args...; kwds...) =
     get(connection(), apt, args...; kwds...)
 
 get(conn::Client, apt::AccessPoint, args...; kwds...) =
-    get(conn, address(apt), args...; kwds...)
+    get(conn, apt.address, args...; kwds...)
 
 get(conn::Client, apt::AbstractString, args...; kwds...) =
     get(conn, apt, join_arguments(args); kwds...)
 
 _get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
 
-function get(::Type{Vector{T}},
-             args...; kwds...) :: Vector{T} where {T}
-    get_data(Vector{T}, _get1(args...; kwds...))
+function get(::Type{R}, arg1::Union{Client,AccessPoint,AbstractString},
+             args...; kwds...) where {T,R<:AbstractVector{T}}
+    return get_data(R, _get1(arg1, args...; kwds...))
 end
 
-function get(::Type{Vector{T}}, dim::Integer,
-             args...; kwds...) :: Vector{T} where {T}
-    get_data(Vector{T}, dim, _get1(args...; kwds...))
+function get(::Type{R}, shape::Shape, arg1::Union{Client,AccessPoint,AbstractString},
+             args...; kwds...) where {T,R<:AbstractArray{T}}
+    get_data(R, shape, _get1(arg1, args...; kwds...))
 end
 
-function get(::Type{Array{T}}, dim::Integer,
-             args...; kwds...) :: Array{T} where {T}
-    get_data(Vector{T}, dim, _get1(args...; kwds...))
+function get(::Type{String}, arg1::Union{Client,AccessPoint,AbstractString},
+             args...; kwds...)
+    return get_data(String, _get1(arg1, args...; kwds...))
 end
 
-function get(::Type{Array{T}}, dims::NTuple{N,Integer},
-             args...; kwds...) :: Array{T,N} where {T,N}
-    get_data(Array{T,N}, dims, _get1(args...; kwds...))
-end
-
-function get(::Type{Array{T,N}}, dims::NTuple{N,Integer},
-             args...; kwds...) :: Array{T,N} where {T,N}
-    get_data(Array{T,N}, dims, _get1(args...; kwds...))
-end
-
-function get(::Type{A}, dims::Dims{N}, args...; kwds...) where {T,N,A<:AbstractArray{T,N}}
-    get_data(Array{T,N}, dims, _get1(args...; kwds...))
-end
-
-function get(::Type{String}, args...; kwds...)
-    return get_data(String, _get1(args...; kwds...))
+function get(::Type{T}, arg1::Union{Client,AccessPoint,AbstractString},
+             args...; kwds...) where {T}
+    return get_data(T, _get1(arg1, args...; kwds...))
 end
 
 function _get(conn::Client, apt::AbstractString, params::AbstractString,
@@ -894,7 +878,7 @@ function get_data(::Type{T}, A::Reply, i::Integer=1; kwds...) where {T}
     return get_data(T, A[i]; kwds...)
 end
 
-function get_data(::Type{T}, shape::ArrayShape, A::Reply, i::Integer=1;
+function get_data(::Type{T}, shape::Shape, A::Reply, i::Integer=1;
                   kwds...) where {T<:AbstractArray}
     return get_data(T, shape, A[i]; kwds...)
 end
@@ -936,7 +920,7 @@ function get_data(::Type{R}, A::eltype(Reply); kwds...) where {T,R<:AbstractVect
 end
 
 # Convert array shape to `Dims`.
-function get_data(::Type{T}, shape::ArrayShape, A::eltype(Reply);
+function get_data(::Type{T}, shape::Shape, A::eltype(Reply);
                   kwds...) where {T<:AbstractArray}
     return get_data(T, as_array_size(shape), A; kwds...)
 end

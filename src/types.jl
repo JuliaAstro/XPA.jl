@@ -271,3 +271,6 @@ server.
 
 """
 struct NullBuffer end
+
+# Union of types suitable for defining the shape of the expected result.
+const Shape = Union{Integer, Tuple{Vararg{Integer}}}
