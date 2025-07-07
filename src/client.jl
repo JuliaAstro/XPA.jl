@@ -212,6 +212,9 @@ are available:
   with a vector of 2 or more matching instances of [`XPA.AccessPoint`](@ref) and the result
   of `select` is returned by `XPA.find`.
 
+- `throwerrors` specifies whether to throw an error if no matching servers are found instead
+  of returning `nothing`.
+
 # Example
 
 ``` julia
@@ -223,14 +226,16 @@ apt = XPA.find(; interact = isinteractive(), method = :local)
 [`XPA.list`](@ref) which is called to retrieve a list of access-points with the predicate
 function `f`.
 
-[`XPA.AccessPoint`](@ref) for the properties of access-points that can be used in the predicate
-function `f`.
+[`XPA.AccessPoint`](@ref) for the properties of access-points that can be used in the
+predicate function `f`.
 
 """
-function find(f::Function = Returns(true); select = :throw, kwds...)
+function find(f::Function = Returns(true);
+              select = :throw, throwerrors::Bool = false, kwds...)
     apts = list(f; kwds...)
     n = length(apts)
     if n == 0
+        throwerrors && error("no XPA servers match the constraints")
         return nothing
     elseif n == 1
         return first(apts)
