@@ -572,6 +572,60 @@ end
 # Send an XPA get command expecting a single answer.
 _get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
 
+"""
+    XPA.set([conn,] apt, args...; data=nothing, kwds...) -> rep
+
+sends `data` to one or more XPA access-points identified by `apt` with arguments `args...`
+(automatically converted into a single string where the arguments are separated by a single
+space). The result is an instance of [`XPA.Reply`](@ref). Optional argument `conn` is a
+persistent XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a per-task
+connection is used (see [`XPA.connection`](@ref)).
+
+# Keywords
+
+* `data` specifies the data to send, may be `nothing`, an array, or a string.
+
+* `nmax` specifies the maximum number of recipients, `nmax=1` by default. Specify `nmax=-1`
+  to use the maximum possible number of XPA hosts.
+
+* `mode` specifies options in the form `"key1=value1,key2=value2"`.
+
+* `throwerrors` specifies whether to check for errors. If this keyword is set `true`, an
+  exception is thrown for the first error message encountered in the list of answers. By
+  default, `throwerrors` is false.
+
+* `users` specifies the list of possible users owning the access-point. This (temporarily)
+  overrides the settings in environment variable `XPA_NSUSERS`. By default and if the
+  environment variable `XPA_NSUSERS` is not set, the access-point must be owned by the
+  caller (see Section *Distinguishing Users* in XPA documentation). The value is a string
+  which may be a list of comma separated user names or `"*"` to access all users on a given
+  machine.
+
+# See also
+
+[`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
+
+"""
+set(apt::Union{AccessPoint,AbstractString}, args...; kwds...) =
+    set(connection(), apt, args...; kwds...)
+
+set(conn::Client, apt::Union{AccessPoint,AbstractString}, args...; kwds...) =
+    set(conn, apt, join_arguments(args); kwds...)
+
+set(conn::Client, apt::AccessPoint, cmd::AbstractString; kwds...) =
+    set(conn, apt.address, cmd; kwds...)
+
+function set(conn::Client,
+             apt::AbstractString,
+             cmd::AbstractString;
+             data = nothing,
+             mode::AbstractString = "",
+             nmax::Integer = 1,
+             throwerrors::Bool = false,
+             users::Union{Nothing,AbstractString} = nothing)
+    return _set(conn, apt, cmd, mode, buffer(data), _nmax(nmax), throwerrors, users)
+end
+
 function _get(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, nmax::Int, throwerrors::Bool,
               users::Union{Nothing,AbstractString})
@@ -639,7 +693,7 @@ Restore environment variable `XPA_NSUSERS`.
 """
 _restore_nsusers(::Nothing) = nothing
 function _restore_nsusers(users::AbstractString)
-    if users == ""
+    if isempty(users)
         delete!(ENV, "XPA_NSUSERS")
     else
         ENV["XPA_NSUSERS"] = users
@@ -719,12 +773,12 @@ Base.parent(A::DataAccessor) = getfield(A, :parent)
 Base.propertynames(A::eltype(Reply)) = (:data, :has_error, :has_message, :message, :server)
 
 Base.getproperty(A::eltype(Reply), key::Symbol) =
-   key === :data        ? DataAccessor(A) :
-   key === :has_error   ? has_error(   A) :
-   key === :has_message ? has_message( A) :
-   key === :message     ? get_message( A) :
-   key === :server      ? get_server(  A) :
-   throw(KeyError(key))
+    key === :data        ? DataAccessor(A) :
+    key === :has_error   ? has_error(   A) :
+    key === :has_message ? has_message( A) :
+    key === :message     ? get_message( A) :
+    key === :server      ? get_server(  A) :
+    throw(KeyError(key))
 
 """
     XPA.get_message(rep::XPA.Reply, i=1)
@@ -1106,91 +1160,42 @@ has_ndims(::Type{<:AbstractArray}) = false
 has_ndims(::Type{<:AbstractArray{<:Any,N}}) where {N} = true
 
 """
-    XPA.set([conn,] apt, args...; data=nothing, kwds...) -> rep
-
-sends `data` to one or more XPA access-points identified by `apt` with arguments `args...`
-(automatically converted into a single string where the arguments are separated by a single
-space). The result is an instance of [`XPA.Reply`](@ref). Optional argument `conn` is a
-persistent XPA client connection (created by [`XPA.Client`](@ref)); if omitted, a per-task
-connection is used (see [`XPA.connection`](@ref)).
-
-The following keywords are available:
-
-* Keyword `data` specifies the data to send, may be `nothing`, an array or a string. If it
-  is an array, it must have contiguous elements (as a for a *dense* array) and must
-  implement the `pointer` method.
-
-* Keyword `nmax` specifies the maximum number of recipients, `nmax=1` by default. Specify
-  `nmax=-1` to use the maximum possible number of XPA hosts.
-
-* Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
-
-* Keyword `throwerrors` specifies whether to check for errors. If this keyword is set
-  `true`, an exception is thrown for the first error message encountered in the list of
-  answers. By default, `throwerrors` is false.
-
-* Keyword `users` specifies the list of possible users owning the access-point. This
-  (temporarily) overrides the settings in environment variable `XPA_NSUSERS`. By default and
-  if the environment variable `XPA_NSUSERS` is not set, the access-point must be owned the
-  caller (see Section *Distinguishing Users* in XPA documentation). The value is a string
-  which may be a list of comma separated user names or `"*"` to access all users on a given
-  machine.
-
-# See also
-
-[`XPA.Client`](@ref), [`XPA.get`](@ref) and [`XPA.verify`](@ref).
-
-"""
-function set(conn::Client,
-             apt::AbstractString,
-             cmd::AbstractString;
-             data = nothing,
-             mode::AbstractString = "",
-             nmax::Integer = 1,
-             throwerrors::Bool = false,
-             users::Union{Nothing,AbstractString} = nothing)
-    return _set(conn, apt, cmd, mode, buffer(data), _nmax(nmax),
-                throwerrors, users)
-end
-
-function set(conn::Client,
-             apt::AbstractString,
-             args::Union{AbstractString,Real}...;
-             kwds...)
-    return _set(conn, apt, join_arguments(args); kwds...)
-end
-
-set(apt::AbstractString, args::Union{AbstractString,Real}...; kwds...) =
-    set(connection(), apt, join_arguments(args); kwds...)
-
-"""
     buf = XPA.buffer(data)
 
 yields an object `buf` representing the contents of `data` and which can be used as an
-argument to `ccall` without the risk of having the data garbage collected. Argument `data`
-can be `nothing`, a dense array or a string. If `data` is an array `buf` is just an alias
-for `data`. If `data` is a string, `buf` is a temporary byte buffer where the string has
-been copied.
+argument to `ccall`. Argument `data` can be `nothing`, an array, or a string. If `data` is a
+dense array, `buf` is `data`. If `data` is another type of array, `buf` is `data` converted
+to an `Array`. If `data` is an ASCII string, `buf` is copy of `data` as temporary byte
+buffer. If `data` is `nothing`, `XPA.NullBuffer()` is returned.
 
-Standard methods `pointer` and `sizeof` can be applied to `buf` to retieve the address and
-the size (in bytes) of the data and `convert(Ptr{Cvoid},buf)` can also be used.
+Standard methods like `pointer` or `sizeof` can be applied to `buf` to retrieve the address
+and the size (in bytes) of the data and `Base.unsafe_convert(Ptr{Cvoid}, buf)` can also be
+used.
 
 # See also
 
 [`XPA.set`](@ref).
 
 """
-function buffer(arr::A) :: A where {T,N,A<:DenseArray{T,N}}
-    @assert isbitstype(T)
+function buffer(arr::DenseArray{T,N}) where {T,N}
+    (isbitstype(T) && !iszero(sizeof(T))) || throw(ArgumentError(
+        "value type `$T` is not plain data type"))
     return arr
 end
 
+function buffer(arr::AbstractArray{T,N}) where {T,N}
+    (isbitstype(T) && !iszero(sizeof(T))) || throw(ArgumentError(
+        "value type `$T` is not plain data type"))
+    return convert(Array{T,N}, arr)
+end
+
 function buffer(str::AbstractString)
-    @assert isascii(str)
+    isascii(str) || throw(ArgumentError("non-ASCII character(s) in string"))
     len = length(str)
-    buf = Vector{Cchar}(undef, len)
-    @inbounds for i in 1:len
-        buf[i] = str[i]
+    buf = Memory{Cchar}(undef, len)
+    # Copy characters but not with `_memcpy!` because conversions may occur.
+    @inbounds for (i, c) in enumerate(str)
+        buf[i] = c
     end
     return buf
 end

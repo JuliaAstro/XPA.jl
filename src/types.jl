@@ -242,9 +242,10 @@ struct AccessPoint
 end
 
 """
+    XPA.NullBuffer
 
-`XPA.NullBuffer` is a singleton type representing a NULL-buffer when sending data to a
-server.
+singleton type representing an empty buffer when sending data to a server. Its length is `0`
+byte and its address is `Ptr{Cvoid}(0)`.
 
 """
 struct NullBuffer end
