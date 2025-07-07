@@ -51,6 +51,16 @@
   `apt`. For example, use `apt.address` instead of `XPA.address(apt)`. Method `isopen(apt)`
   yields whether the address in `apt` is a non-empty string.
 
+- `XPA.AccessPoint` has a constructor that takes all members specified by keywords.
+
+- Constructors for `XPA.AccessPoint` accept `access` as a string composed of characters
+  `'g'`, `'s'`, and `'i'` respectively indicating whether `get`, `set`, and `info` commands
+  are implemented by the server.
+
+- `XPA.AccessPoint(str)`, `parse(XPA.AccessPoint, str)`, and `tryparse(XPA.AccessPoint,
+  str)` can be used to convert a string `str` to an XPA access-point assuming the same
+  format as the output of `xpans`.
+
 - Private abstract type `XPA.Handle` removed. Use `Union{XPA.Client,XPA.Server}` instead.
 
 

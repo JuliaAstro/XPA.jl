@@ -98,6 +98,28 @@ import Base: RefValue
         @test apt.user == "user"
         @test apt.access == 5
         @test isopen(apt)
+        @test isopen(XPA.AccessPoint(address="foo"))
+        str = "DS9 ds9-8.7b1 gs 7f000001:37143 eric"
+        A = tryparse(XPA.AccessPoint, str)
+        @test A isa XPA.AccessPoint
+        @test A.class == "DS9"
+        @test A.name == "ds9-8.7b1"
+        @test A.address == "7f000001:37143"
+        @test A.user == "eric"
+        @test A.access == 3
+        @test string(A) == str
+        B = tryparse(XPA.AccessPoint, str*"\n")
+        @test B == A
+        @test tryparse(XPA.AccessPoint, "a b c d e ") === nothing
+        @test tryparse(XPA.AccessPoint, "a b c d") === nothing
+        B = XPA.AccessPoint(A.class, A.name, A.address, A.user, A.access)
+        @test B == A
+        B = XPA.AccessPoint(A.class, A.name, A.address, A.user, "gs")
+        @test B == A
+        B = XPA.AccessPoint(class=A.class, name=A.name, address=A.address, user=A.user, access=A.access)
+        @test B == A
+        B = XPA.AccessPoint(class=A.class, name=A.name, address=A.address, user=A.user, access="gs")
+        @test B == A
     end
 end
 

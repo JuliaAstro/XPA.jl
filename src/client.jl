@@ -162,25 +162,13 @@ function list(f::Function = Returns(true);
     # Parse textual descriptions of XPA servers.
     lst = AccessPoint[]
     for line in lines
-        m = match(r"^ *([^ ]+) +([^ ]+) +([gsi]+) +([^ ]+) +([^ ]+) *$", line)
-        if m === nothing
+        apt = tryparse(AccessPoint, line)
+        if apt === nothing
             if on_error in (:throw, :warn)
                 mesg = "failed to parse `xpans` output line: \"$line\""
                 on_error === :throw ? error(mesg) : @warn mesg
             end
         else
-            class, name, acl, addr, user = m.captures
-            access = zero(GET)
-            for c in acl
-                if c == 'g'
-                    access |= GET
-                elseif c == 's'
-                    access |= SET
-                elseif c == 'i'
-                    access |= INFO
-                end
-            end
-            apt = AccessPoint(class, name, addr, user, access)
             f(apt) && push!(lst, apt)
         end
     end
@@ -332,6 +320,139 @@ function select_interactively(iter)
 end
 
 """
+    apt = XPA.AccessPoint(str)
+    apt = XPA.AccessPoint(class, name, address, user, access)
+    apt = XPA.AccessPoint(; class="", name="", address="", user="", access=0)
+
+builds a structure representing an XPA server for a client. If single argument is a string
+`str`, it is parsed assuming the same format as the output of `xpans`. Otherwise the
+arguments/keywords reflect the properties of the object:
+
+    apt.class   # access-point class
+    apt.name    # access-point name
+    apt.address # server address (host:port for inet socket, path for unix socket)
+    apt.user    # access-point owner
+    apt.access  # allowed access
+
+At least the `address` shall be provided.
+
+All properties are strings except `access` which is an unsigned integer whose bits are set
+as follows:
+
+     !iszero(apt.access & $(Int(SET))) # holds if `set` command allowed
+     !iszero(apt.access & $(Int(GET))) # holds if `get` command allowed
+     !iszero(apt.access & $(Int(INFO))) # holds if `info` command allowed
+
+The constructors however accept `access` as a string composed of characters `'g'`, `'s'`,
+and `'i'` respectively indicating whether `get`, `set`, and `info` commands are implemented
+by the server.
+
+Method `isopen(apt)` yields whether `address` is not an empty string.
+
+# See also
+
+[`XPA.list`](@ref) to retrieve a vector of existing XPA servers possibly filtered by some
+provided function.
+
+[`XPA.find`](@ref) to obtain the access-point of a single XPA server.
+
+"""
+function AccessPoint(; class::AbstractString = EMPTY_STRING,
+                     name::AbstractString = EMPTY_STRING,
+                     address::AbstractString = EMPTY_STRING,
+                     user::AbstractString = EMPTY_STRING,
+                     access::Union{Integer,AbstractString} = 0)
+    return AccessPoint(class, name, address, user, _accesspoint_type(access))
+end
+
+_accesspoint_type(bits::Integer) = oftype(GET, bits) & (GET | SET | INFO)
+
+function _accesspoint_type(str::AbstractString)
+    access = zero(GET)
+    for c in str
+        if c == 'g'
+            access |= GET
+        elseif c == 's'
+            access |= SET
+        elseif c == 'i'
+            access |= INFO
+        else
+            throw(ArgumentError("unexpected character $(repr(access)) in `access`"))
+        end
+    end
+    return access
+end
+
+AccessPoint(str::AbstractString) = parse(AccessPoint, str)
+
+Base.show(io::IO, ::MIME"text/plain", apt::AccessPoint) = show(io, apt)
+
+function Base.show(io::IO, apt::AccessPoint)
+    sep = ""
+    print(io, "XPA.AccessPoint(")
+    if !isempty(apt.class)
+        print(io, sep, "class=", repr(apt.class))
+        sep = ", "
+    end
+    if !isempty(apt.name)
+        print(io, sep, "name=", repr(apt.name))
+        sep = ", "
+    end
+    if !isempty(apt.address)
+        print(io, sep, "address=", repr(apt.address))
+        sep = ", "
+    end
+    if !isempty(apt.user)
+        print(io, sep, "user=", repr(apt.user))
+        sep = ", "
+    end
+    if !iszero(apt.access)
+        print(io, sep, "access=\"")
+        iszero(apt.access & GET)  || print(io, 'g')
+        iszero(apt.access & SET)  || print(io, 's')
+        iszero(apt.access & INFO) || print(io, 'i')
+        print(io, "\"")
+        sep = ", "
+    end
+    print(io, ")")
+    return nothing
+end
+
+function Base.print(io::IO, apt::AccessPoint)
+    # Print 5 tokens separated by a single space. See function `ListReq` in `xpa/xpans.c`.
+    print(io, apt.class, ' ', apt.name, ' ')
+    iszero(apt.access & GET)  || print(io, 'g')
+    iszero(apt.access & SET)  || print(io, 's')
+    iszero(apt.access & INFO) || print(io, 'i')
+    print(io, ' ', apt.address, ' ', apt.user)
+    return nothing
+end
+
+function Base.parse(::Type{AccessPoint}, str::AbstractString)
+    apt = tryparse(AccessPoint, str; kwds...)
+    apt === nothing && error("failed to parse $(repr(str)) as an `XPA.AccessPoint`")
+    return apt
+end
+
+function Base.tryparse(::Type{AccessPoint}, str::AbstractString)
+    # Expect 5 tokens separated by a single space. See function `ListReq` in `xpa/xpans.c`.
+    s = chomp(str) # get rid of terminal end-of-line if any
+    i = firstindex(s); j = findfirst(' ', s); j === nothing && return nothing
+    class = SubString(s, i, prevind(s, j))
+    i = nextind(s, j); j = findnext(' ', s, i); j === nothing && return nothing
+    name = SubString(s, i, prevind(s, j))
+    i = nextind(s, j); j = findnext(' ', s, i); j === nothing && return nothing
+    access = SubString(s, i, prevind(s, j))
+    i = nextind(s, j); j = findnext(' ', s, i); j === nothing && return nothing
+    addr = SubString(s, i, prevind(s, j))
+    i = nextind(s, j); j = findnext(' ', s, i); j === nothing || return nothing
+    user = SubString(s, i, lastindex(s))
+    return AccessPoint(class, name, addr, user, _accesspoint_type(access))
+end
+
+Base.isopen(apt::XPA.AccessPoint) = !isempty(apt.address)
+
+"""
     XPA.address(apt) -> addr
 
 yields the address of XPA access-point `apt` which can be: an instance of `XPA.AccessPoint`,
@@ -350,9 +471,6 @@ function address(apt::AbstractString) # FIXME
     end
     return apt
 end
-
-AccessPoint() = AccessPoint(EMPTY_STRING, EMPTY_STRING, EMPTY_STRING, EMPTY_STRING, 0)
-Base.isopen(apt::XPA.AccessPoint) = !isempty(apt.address)
 
 """
     XPA.get([T, [dims,]] [conn,] apt, args...; kwds...)

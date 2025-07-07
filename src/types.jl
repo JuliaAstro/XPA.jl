@@ -227,44 +227,19 @@ const SET    = UInt(1)
 const GET    = SET << 1
 const INFO   = SET << 2
 
-"""
-    apt = XPA.AccessPoint(class, name, address, user, access)
-
-builds a structure representing an XPA server for a client. The arguments reflect the
-properties of the object:
-
-    apt.class   # access-point class
-    apt.name    # access-point name
-    apt.address # server address (host:port for inet socket, path for unix socket)
-    apt.user    # access-point owner
-    apt.access  # allowed access
-
-All properties are strings except `access` which is an unsigned integer whose bits are set
-as follows:
-
-     !iszero(apt.access & $(Int(SET))) # holds if `set` command allowed
-     !iszero(apt.access & $(Int(GET))) # holds if `get` command allowed
-     !iszero(apt.access & $(Int(INFO))) # holds if `info` command allowed
-
-Method `isopen(apt)` yields whether `address` is not an empty string.
-
-`XPA.AccessPoint()` yields an access-point whose `class`, `name`, `address`, and `user` are
-empty strings and whose `access` is 0.
-
-# See also
-
-[`XPA.list`](@ref) to retrieve a vector of existing XPA servers possibly filtered by some
-provided function.
-
-[`XPA.find`](@ref) to obtain the access-point of a single XPA server.
-
-"""
 struct AccessPoint
     class::String
     name::String
     address::String
     user::String
     access::UInt
+    function AccessPoint(class::AbstractString,
+                         name::AbstractString,
+                         address::AbstractString,
+                         user::AbstractString,
+                         access::Union{Integer,AbstractString})
+        return new(class, name, address, user, _accesspoint_type(access))
+    end
 end
 
 """
