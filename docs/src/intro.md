@@ -12,22 +12,20 @@ or:
 using XPA
 ```
 
-This makes almost no differences as nothing, but `XPA_VERSION` (the version of
-the XPA dynamic library), is exported by the `XPA` module.  This means that all
-methods or constants are prefixed by `XPA.`.  You may change the suffix, for
-instance:
+This makes no differences as nothing is exported by the `XPA` module. This means that all
+methods or constants are prefixed by `XPA.`; but you may change the suffix, for instance:
+
+```julia
+import XPA as xpa
+```
+
+or in Julia version 1.5 or older:
 
 ```julia
 using XPA
 const xpa = XPA
 ```
 
-or (in Julia 1.6 and higher),
-
-```julia
-import XPA as xpa
-```
-
-The implemented methods are described in what follows, first the client side,
-then the server side and finally some utilities.  More extensive XPA
-documentation can be found [here](http://hea-www.harvard.edu/RD/xpa/help.html).
+The implemented methods are described in what follows, first the client side, then the
+server side and finally some utilities. More extensive XPA documentation can be found
+[here](http://hea-www.harvard.edu/RD/xpa/help.html).
