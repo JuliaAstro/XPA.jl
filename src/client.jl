@@ -766,7 +766,16 @@ end
 
 # API for `XPA.DataAccessor`.
 Base.parent(A::DataAccessor) = getfield(A, :parent)
-@inline (A::DataAccessor)(args...; kwds...) = get_data(args..., parent(A); kwds...)
+@inline (A::DataAccessor)(; kwds...) = get_data(parent(A); kwds...)
+@inline (A::DataAccessor)(::Type{T}; kwds...) where {T} = get_data(T, parent(A); kwds...)
+@inline (A::DataAccessor)(::Type{T}; kwds...) where {T<:AbstractArray} =
+    get_data(T, parent(A); kwds...)
+@inline (A::DataAccessor)(::Type{T}, dims::Integer...; kwds...) where {T<:AbstractArray} =
+    get_data(T, dims, parent(A); kwds...)
+@inline function (A::DataAccessor)(::Type{T}, dims::Tuple{Integer,Vararg{Integer}};
+                                   kwds...) where {T<:AbstractArray}
+    return get_data(T, dims, parent(A); kwds...)
+end
 
 # API for `eltype(XPA.Reply)`. This temporary object represent a single reply entry and
 # whose index has been checked by the constructor.
