@@ -475,23 +475,46 @@ end
 """
     XPA.get([T, [dims,]] [conn,] apt, args...; kwds...)
 
-retrieves data from one or more XPA access-points identified by `apt` (a template name, a
-`host:port` string or the name of a Unix socket file) with arguments `args...`
-(automatically converted into a single string where the arguments are separated by a single
-space). Optional argument `conn` is a persistent XPA client connection (created by
-[`XPA.Client`](@ref)); if omitted, a per-task connection is used (see
-[`XPA.connection`](@ref)). The returned value depends on the optional arguments `T` and
-`dims`.
+retrieves data from one or more XPA access-points `apt` with arguments `args...`. Argument
+`apt` is an instance of [`XPA.AccessPoint`](@ref), a template name, a `host:port` string, or
+the path to a Unix socket file. Arguments `args...` are converted into a single string with
+elements of `args...` separated by a single space. Optional argument `conn` is a persistent
+XPA client connection created by [`XPA.Client`](@ref); if omitted, a per-task connection
+is used (see [`XPA.connection`](@ref)). The returned value depends on the optional arguments
+`T` and `dims`.
 
 If neither `T` nor `dims` are specified, an instance of [`XPA.Reply`](@ref) is returned with
-all the answer(s) from the XPA server(s). The following keywords are available:
+all the answer(s) from the XPA server(s).
 
-* Keyword `nmax` specifies the maximum number of answers, `nmax=1` by default. Specify
-  `nmax=-1` to use the maximum number of XPA hosts.
+If `T` and, possibly, `dims` are specified, a single answer and no errors are expected (as
+if `nmax=1` and `throwerrors=true`) and the data part of the answer is converted according
+to `T` which must be a type and `dims` which is an optional array size:
+
+* With `dims` an `N`-dimensional array size and `T` an array type like `Array{S}` or
+  `Array{S,N}`, the data is converted into an array of this type and size.
+
+* Without `dims` and if `T` is a vector like `Vector{S}` or `Memory{S}`, the data is
+  converted into a vector of type `T` with as many elements of type `S` that fit into the
+  data.
+
+* Without `dims` and if `T` is `String`, a string interpreting the data as ASCII characters
+  is returned.
+
+* Without `dims` and for any other types `T`, the `sizeof(T)` leading bytes of the data are
+  returned as a single value of type `T`.
+
+Except if `T` is `String`, trailing data bytes, if any, are ignored.
+
+# Keywords
+
+* Keyword `nmax` specifies the maximum number of answers. Specify `nmax=-1` to use the
+  maximum number of XPA hosts. This keyword is forced to be `1` if `T` is specified;
+  otherwise, `nmax=1` by default.
 
 * Keyword `throwerrors` specifies whether to check for errors. If this keyword is set true,
-  an exception is thrown for the first error message encountered in the list of answers. By
-  default, `throwerrors` is false.
+  an exception is thrown for the first error message encountered in the list of answers.
+  This keyword is forced to be `true` if `T` is specified; otherwise, `throwerrors` is false
+  by default.
 
 * Keyword `mode` specifies options in the form `"key1=value1,key2=value2"`.
 
@@ -502,21 +525,9 @@ all the answer(s) from the XPA server(s). The following keywords are available:
   which may be a list of comma separated user names or `"*"` to access all users on a given
   machine.
 
-If `T` and, possibly, `dims` are specified, a single answer and no errors are expected (as
-if `nmax=1` and `throwerrors=true`) and the data part of the answer is converted according
-to `T` which must be a type and `dims` which is an optional list of dimensions:
-
-* If only `T` is specified, it can be `String` to return a string interpreting the data as
-  ASCII characters or a type like `Vector{S}` to return the largest vector of elements of
-  type `S` that can be extracted from the returned data.
-
-* If both `T` and `dims` are specified, `T` can be a type like `Array{S}` or `Array{S,N}`
-  and `dims` a list of `N` dimensions to retrieve the data as an array of type `Array{S,N}`.
-
 # See also
 
-[`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref), and
-[`XPA.verify`](@ref).
+[`XPA.Client`](@ref), [`XPA.get_data`](@ref), [`XPA.set`](@ref), and [`XPA.verify`](@ref).
 
 """
 function get(conn::Client,
