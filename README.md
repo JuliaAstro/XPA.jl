@@ -1,6 +1,6 @@
 # A Julia interface to the XPA messaging system
 
-[![Doc. Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliaastro.org/XPA/stable/)
+[![Doc. Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliaastro.org/XPA.jl/stable/)
 [![Doc. Devel.](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliaastro.org/XPA.jl/dev/)
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](./LICENSE.md)
 [![Build Status](https://github.com/JuliaAstro/XPA.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/JuliaAstro/XPA.jl/actions/workflows/CI.yml)

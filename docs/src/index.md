@@ -1,4 +1,4 @@
-# The `XPA.jl` package
+# The XPA package for Julia
 
 The [XPA Messaging System](https://github.com/ericmandel/xpa) provides seamless
 communication between many kinds of Unix/Windows programs, including X programs, Tcl/Tk
