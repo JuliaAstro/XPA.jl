@@ -1,11 +1,11 @@
 # Private methods
 
-This page documents the internal methods for XPA.jl developers. Since these are
-not part of the public API, the page is hidden from the site navigation.
+This page documents the internal methods for `XPA.jl` developers. Since these are not part
+of the public API, the page is hidden from the site navigation.
 
 !!! warning
-    The functions documented here are internal to XPA.jl and should not be
-    considered of the stable/public API.
+    The functions documented here are internal to `XPA.jl` and should not be considered as
+    being part of the stable/public API.
 
 ## Types
 
@@ -13,9 +13,6 @@ not part of the public API, the page is hidden from the site navigation.
 XPA.SendBuffer
 XPA.ReceiveBuffer
 XPA.NullBuffer
-
-XPA.Handle
-
 XPA.TupleOf
 ```
 
@@ -24,19 +21,12 @@ XPA.TupleOf
 ```@docs
 XPA._override_nsusers
 XPA._restore_nsusers
-XPA._nmax
-XPA._get_buf
-XPA._memcpy!
-XPA._free
-XPA._malloc
-XPA._get_field
-XPA._open
-close
 ```
 
 ## `XPA.CDefs` module
 
 ```@docs
+XPA.CDefs
 XPA.CDefs.SelOn
 XPA.CDefs.SelOff
 XPA.CDefs.SelAdd
