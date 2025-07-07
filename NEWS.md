@@ -1,6 +1,6 @@
 # Changes in XPA package
 
-## Unreleased
+## Version 0.3.0
 
 This version fixes some bugs and introduces a better API to deal with XPA reply which is now
 implemented as a vector of answer(s) with properties to retrieve their status, associated
@@ -22,7 +22,7 @@ the `preserve` keyword in `XPA.get_data` that has been replaced by `take`.
   Previously, a per-thread client connection was returned which was wrong because a given
   Julia task may migrate to another thread.
 
-- `XPA.getconfig` and `XPA.setconfig` gave been fixed fixed and their type stability
+- `XPA.getconfig` and `XPA.setconfig` have been fixed fixed and their type stability
   improved.
 
 ### Changed
