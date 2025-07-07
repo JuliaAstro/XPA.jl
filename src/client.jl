@@ -348,9 +348,9 @@ as follows:
      !iszero(apt.access & $(Int(GET))) # holds if `get` command allowed
      !iszero(apt.access & $(Int(INFO))) # holds if `info` command allowed
 
-The constructors however accept `access` as a string composed of characters `'g'`, `'s'`,
-and `'i'` respectively indicating whether `get`, `set`, and `info` commands are implemented
-by the server.
+The constructors also accept `access` as a string composed of characters `'g'`, `'s'`, and
+`'i'` respectively indicating whether `get`, `set`, and `info` commands are implemented by
+the server.
 
 Method `isopen(apt)` yields whether `address` is not an empty string.
 
@@ -1179,7 +1179,7 @@ has_ndims(::Type{<:AbstractArray{<:Any,N}}) where {N} = true
 yields an object `buf` representing the contents of `data` and which can be used as an
 argument to `ccall`. Argument `data` can be `nothing`, an array, or a string. If `data` is a
 dense array, `buf` is `data`. If `data` is another type of array, `buf` is `data` converted
-to an `Array`. If `data` is an ASCII string, `buf` is copy of `data` as temporary byte
+to an `Array`. If `data` is an ASCII string, `buf` is copy of `data` in a temporary byte
 buffer. If `data` is `nothing`, `XPA.NullBuffer()` is returned.
 
 Standard methods like `pointer` or `sizeof` can be applied to `buf` to retrieve the address

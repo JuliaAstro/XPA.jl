@@ -1,286 +1,280 @@
 # Client operations
 
-Client operations involve querying data from one or several XPA servers or
-sending data to one or several XPA servers.
+Client operations involve querying data from one or several XPA servers or sending data to
+one or several XPA servers.
 
 
 ## Persistent client connection
 
-To avoid reconnecting to the XPA server for each client request, `XPA.jl`
-maintains a per-thread persistent connection to the server.  The end-user
-should therefore not have to worry about creating persistent XPA client
-connections (by calling [`XPA.Client()`](@ref)) for its application.
+To avoid reconnecting to the XPA server for each client request, `XPA.jl` maintains a
+per-task persistent connection to the server. The end-user should therefore not have to
+worry about creating persistent XPA client connections by calling [`XPA.Client()`](@ref) for
+its application. Persistent XPA client connections are automatically shutdown and related
+resources freed when tasks are garbage collected. The `close()` method can be applied to a
+persistent XPA client connection (if this is done for one of the memorized per-task
+connection, the connection will be automatically re-open if necessary). If needed,
+[`XPA.connection()`](@ref XPA.connection) yields the persistent XPA client of the calling
+task.
 
-Persistent XPA client connections are automatically shutdown and related
-resources freed when garbage collected.  The `close()` method can be applied to
-a persistent XPA client connection (if this is done for one of the memorized
-per-thread connection, the connection will be automatically re-open if
-necessary).
+
+## Identifying XPA servers
+
+The utility [`XPA.list`](@ref) can be called to get a list of running XPA servers:
+
+```julia-repl
+julia> XPA.list()
+2-element Vector{XPA.AccessPoint}:
+ XPA.AccessPoint(class="DS9", name="ds9", address="/tmp/.xpa/DS9_ds9-8.7b1.17760", user="eric", access="gs")
+ XPA.AccessPoint(class="DS9", name="ds9", address="7f000001:43881", user="eric", access="gs")
+```
+
+indicates that two XPA servers are available and that both are
+[SAOImage-DS9](http://ds9.si.edu/site/Home.html), an astronomical tool to display images,
+the first one is using a Unix socket connection, the 2nd one an internet socket. The
+identities of XPA servers is the string `$class:$name` which can be matched by a template
+like `$class:*`. In this case, both servers are identified by `"DS9:ds9"` and matched by
+`"DS9:*"`, to distinguish them, their address (which is unique) must be used. Using the
+address is thus the recommended way to identify a unique XPA server.
+
+[`XPA.list`](@ref) may be called with a predicate function to filter the list of servers.
+This function is called with each [`XPA.AccessPoint`](@ref) of the running XPA servers and
+shall return a Boolean to indicate whether the server is to be selected. For example, using
+the `do`-block syntax:
+
+```julia-repl
+julia> apts = XPA.list() do apt
+           apt.class == "DS9" && startswith(apt.address, "/")
+       end
+1-element Vector{XPA.AccessPoint}:
+ XPA.AccessPoint(class="DS9", name="ds9-8.7b1", address="/tmp/.xpa/DS9_ds9-8.7b1.17760", user="eric", access="gs")
+
+```
+
+lists the SAOImage/DS9 servers with a Unix socket connection while:
+
+```julia-repl
+julia> apts = XPA.list() do apt
+           apt.class == "DS9" && startswith(apt.address, r"[0-9a-fA-F]")
+       end
+1-element Vector{XPA.AccessPoint}:
+ XPA.AccessPoint(class="DS9", name="ds9-8.7b1", address="7f000001:43881", user="eric", access="gs")
+
+```
+
+lists the SAOImage/DS9 servers with an internet socket connection. The `method` keyword may
+also be used to choose a specific connection type. See [`XPA.list`](@ref) documentation for
+more details and for other keywords.
+
+In order to get the address of a unique XPA server, you may call [`XPA.find`](@ref) with a
+predicate function to filter the matching servers and a selection method to keep a single
+one among all matching servers. For example:
+
+```julia-repl
+julia> apt = XPA.find(; select=first) do apt
+           apt.class == "DS9" && startswith(apt.name, "ds9")
+       end
+XPA.AccessPoint(class="DS9", name="ds9-8.7b1", address="/tmp/.xpa/DS9_ds9-8.7b1.17760", user="eric", access="gs")
+
+```
+
+The `select` keyword may be a function (as above) or a symbol such as `:interact` to have an
+interactive menu for the user to choose one of the servers if there are more than one
+matching servers:
+
+```julia-repl
+julia> apt = XPA.find(; select=:interact) do apt
+           apt.class == "DS9"
+       end
+Please select one of:
+ > (none)
+   DS9:ds9-8.7b1 [address="/tmp/.xpa/DS9_ds9-8.7b1.17760", user="eric"]
+   DS9:ds9-8.7b1 [address="7f000001:43881", user="eric"]
+```
+
+If there are no matching servers, [`XPA.find`](@ref) returns `nothing` unless the
+`throwerrors` keyword is `true` to throw an exception if no match is found. If there are
+more than one matching servers and no `select` method is specified or if it is not
+`:interact`, [`XPA.find`](@ref) throws an error.
+
+The address of an [`XPA.AccessPoint`](@ref) instance `apt` is given by `apt.address`. See
+the documentation of [`XPA.AccessPoint`](@ref) for other properties of `apt` that can be
+used in the filter and select functions.
 
 
 ## Getting data from one or more servers
 
 ### Available methods
 
-To query something from one or more XPA servers, call [`XPA.get`](@ref) method:
+To query something from one or more XPA servers, call the [`XPA.get`](@ref) method:
 
 ```julia
-XPA.get([xpa,] apt, args...) -> rep
+XPA.get([conn,] apt, args...) -> rep
 ```
 
-which uses the client connection `xpa` to retrieve data from one or more XPA
-access points identified by `apt` as a result of the command build from
-arguments `args...`.  Argument `xpa` is optional, if it is not specified, a
-per-thread persistent connection is used.  The XPA access point `apt` is a
-string which can be a template name, a `host:port` string or the name of a Unix
-socket file.
+which uses the persistent client connection `conn` to retrieve data from one or more XPA
+access-points identified by `apt` as a result of the command build from arguments `args...`.
+Argument `conn` is optional, if it is not specified, a per-task persistent connection is
+used. The XPA access-point `apt` is an instance of [`XPA.AccessPoint`](@ref) or a string
+which can be a template name, a `host:port` string or the path to a Unix socket file. The
+arguments `args...` are converted into a single command string where the elements of
+`args...` are separated by a single space.
 
-The utility [`XPA.list()`](@ref) can be called to list available servers.  The
-arguments `args...` are automatically converted into a single command string
-where the arguments are separated by a single space.  For instance:
+For example, to query the version number of up to 5 running SAOImage-DS9 servers:
 
 ```julia-repl
-julia> XPA.list()
-1-element Vector{XPA.AccessPoint}:
- XPA.AccessPoint("DS9", "ds9", "7f000001:44805", "eric", 0x0000000000000003)
+julia> rep = XPA.get("DS9:*", "version"; nmax=5)
+XPA.Reply (2 answers):
+  1: server = "DS9:ds9-8.7b1 7f000001:43881", message = "", data = "ds9-8.7b1 8.7b1\n"
+  2: server = "DS9:ds9-8.7b1 7f000001:36785", message = "", data = "ds9-8.7b1 8.7b1\n"
+
 ```
 
-indicates that a single XPA server is available and that it is
-[SAOImage-DS9](http://ds9.si.edu/site/Home.html), an astronomical tool to
-display images.  The server name is `DS9:ds9` which can be matched by the
-template `DS9:*`, its address is `7f000001:44805`. Either of these strings can
-be used to identify this server but only the address is unique.  Indeed there
-may be more than one server with class `DS9` and name `ds9`.
+For best performances or to make sure to receive answers from a single server, a unique
+server address shall be used, not a template as above.
 
-In order to get the address of a more specific server, you may call
-[`XPA.find(ident)`](@ref) where `ident` is a regular expression or a string
-template to match against the `CLASS:NAME` identifier of the server.  For
-instance:
+The answer, bound to variable `rep` in the above example, to the [`XPA.get`](@ref) request
+is an instance of [`XPA.Reply`](@ref) which is an abstract vector of answer(s). To access
+the different parts of the `i`-th answer, use its properties. Property `rep[i].server`
+yields the identifier and address of the server who sent the answer. Properties
+`rep[i].has_message` and `rep[i].has_error` indicate whether `rep[i]` has an associated
+message, respectively a normal one or an error one, which is given by `rep[i].message` (see
+the [*Messages*](#Messages) section below). For example:
 
 ```julia-repl
-julia> addr = XPA.find(r"^DS9:").addr
-"7f000001:44805"
+julia> rep[1].server
+"DS9:ds9-8.7b1 7f000001:43881"
+
+julia> rep[1].has_message
+false
+
+julia> rep[1].has_error
+false
+
+julia> rep[1].message
+""
+
 ```
 
-The above example will fail if no match is found as [`XPA.find(ident)`](@ref)
-yields `nothing` in that case.  A better usage is:
+Usually the most interesting part of a particular answer is its data part and property
+`rep[i].data` is a callable object to access such data with the following syntax:
+
+```julia
+rep[i].data()                  # a vector of bytes
+rep[i].data(String)            # an ASCII string
+rep[i].data(T)                 # a value of type `T`
+rep[i].data(Vector{T})         # the largest possible vector with elements of type `T`
+rep[i].data(Array{T}, dims...) # an array of element type `T` and size `dims...`
+```
+
+For example:
 
 ```julia-repl
-julia> apt = XPA.find(r"^DS9:");
+julia> rep[1].data(String)
+"ds9-8.7b1 8.7b1\n"
 
-julia> addr = (apt === nothing ? nothing : apt.addr)
-"7f000001:44805"
 ```
 
-You can also set the `throwerrors` keyword to `true` to throw an exception if
-no match is found.
+See the documentation of [`XPA.Reply`](@ref) for more details.
 
-The keywords `user` can be specified to match the name of the owner of the
-server.  For instance:
-
-```julia-repl
-julia> apt = XPA.find(r"^DS9:"; user=ENV["USER"])
-```
-
-to only match the servers owned by you.
-
-The method [`XPA.address`](@ref) yields the XPA address of a server given its
-`class:name` identifier, its address or its `XPA.AccessPoint`.
-
-To query the version number of SAOImage-DS9, we can do:
-
-```julia
-rep = XPA.get("DS9:*", "version");
-```
-
-For best performances, we can do the following:
-
-```julia
-ds9 = (XPA.Client(), XPA.find(r"^DS9:"; throwerrors=true));
-rep = XPA.get(ds9..., "version");
-```
-
-and use `ds9...` in all calls to `XPA.get` or `XPA.set` (described later) to
-use a fast client connection to the uniquely identified SAOImage-DS9 server.
-
-The answer, say `rep`, to the `XPA.get` request is an instance of
-[`XPA.Reply`](@ref).  Various methods are available to retrieve information or
-data from `rep`.  For instance, `length(rep)` yields the number of answers
-which may be zero if no servers have answered the request (the maximum number
-of answers can be specified via the `nmax` keyword of [`XPA.get`](@ref); by
-default, `nmax=1` to retrieve at most one answer).
-
-There may be errors or messages associated with the answers.  To check whether
-the `i`-th answer has an associated error message, call the
-[`XPA.has_error`](@ref) method:
-
-```julia
-XPA.has_error(rep, i=1) -> boolean
-```
-
-!!! note
-    Here and in all methods related to a specific answer in a reply to
-    [`XPA.get`](@ref) or [`XPA.set`](@ref) requests, the answer index `i` can
-    be any integer value.  If it is not such that `1 ≤ i ≤ length(rep)`, it is
-    assumed that there is no corresponding answer and an empty (or false)
-    result is returned.  By default, the first answer is always assumed (as if
-    `i=1`).
-
-To check whether there are any errors, call the [`XPA.has_errors`](@ref)
-method:
-
-```julia
-XPA.has_errors(rep) -> boolean
-```
-
-To avoid checking for errors for every answer to all requests, the
-[`XPA.get`](@ref) method has a `throwerrors` keyword that can be set `true` in
-order to automatically throw an exception if there are any errors in the
+To avoid checking for errors for every answer to an XPA request,
+[`XPA.has_errors(rep)`](@ref XPA.has_errors) yields whether any of the answers in `rep` has
+an error. Otherwise, the [`XPA.get`](@ref) method has a `throwerrors` keyword that can be
+set `true` in order to automatically throw an exception if there are any errors in the
 answers.
 
-The check whether the `i`-th answer has an associated message, call the
-[`XPA.has_message`](@ref) method:
+The syntax `rep[]` can be used to index the **unique answer** in `rep` throwing an error if
+`length(rep) != 1`. If you are only interested in the data associated to a single answer,
+you may thus do:
 
 ```julia
-XPA.has_message(rep, i=1) -> boolean
+XPA.get(apt, args...)[].data(T, dims...)
 ```
 
-To retrieve the message (perhaps an error message), call the
-[`XPA.get_message`](@ref) method:
+This is so common that the same result is obtained by directly specifying `T` and,
+optionally, `dims` as the leading arguments of a [`XPA.get`](@ref) call:
 
 ```julia
-XPA.get_message(rep, i=1) -> string
+XPA.get(T, apt, args...)
+XPA.get(T, dims, apt, args...)
 ```
 
-which yields a string, possibly empty if there are no associated message with
-the `i`-th answer in `rep` or if `i` is out of range.
-
-To retrieve the identity of the server which answered the request, call the
-[`XPA.get_server`](@ref) method:
-
-```julia
-XPA.get_server(rep, i=1) -> string
-```
-
-Usually the most interesting part of a particular answer is its data part which
-can be extracted with the [`XPA.get_data`](@ref) method.  The general syntax to
-retrieve the data associated with the `i`-th answer in `rep` is:
-
-```julia
-XPA.get_data([T, [dims,]], rep, i=1; preserve=false) -> data
-```
-
-where optional arguments `T` (a type) and `dims` (a list of dimensions) may be
-used to specify how to interpret the data.  If they are not specified, a vector
-of bytes (`Vector{UInt8}`) is returned.
-
-!!! note
-    For efficiency reason, copying the associated data is avoided if possible.
-    This means that a call to [`XPA.get_data`](@ref) can *steal* the data and
-    subsequent calls will behave as if the data part of the answer is empty.
-    To avoid this (and force copying the data), use keyword `preserve=true` in
-    calls to [`XPA.get_data`](@ref).  Data are always preserved when a `String`
-    is extracted from the associated data.
-
-Assuming `rep` is the result of some [`XPA.get`](@ref) or [`XPA.set`](@ref)
-request, the following lines of pseudo-code illustrate the roles of the
-optional `T` and `dims` arguments:
-
-```julia
-XPA.get_data(rep, i=1; preserve=false) -> buf::Vector{UInt8}
-XPA.get_data(String, rep, i=1; preserve=false) -> str::String
-XPA.get_data(Vector{S}, [len,] rep, i=1; preserve=false) -> vec::Vector{S}
-XPA.get_data(Array{S}, (dim1, ..., dimN), rep, i=1; preserve=false) -> arr::Array{S,N}
-XPA.get_data(Array{S,N}, (dim1, ..., dimN), rep, i=1; preserve=false) -> arr::Array{S,N}
-```
-
-here `buf` is a vector of bytes, `str` is a string, `vec` is a vector of `len`
-elements of type `S` (if `len` is unspecified, the length of the vector is the
-maximum possible given the actual size of the associated data) and `arr` is an
-`N`-dimensional array whose element type is `S` and dimensions `dim1, ...,
-dimN`.
-
-If you are only interested in the data associated to a single answer, you may
-directly specify arguments `T` and `dims` in the [`XPA.get`](@ref) call:
-
-```julia
-XPA.get(String, [xpa,] apt, args...) -> str::String
-XPA.get(Vector{S}, [len,] [xpa,] apt, args...) -> vec::Vector{S}
-XPA.get(Array{S}, (dim1, ..., dimN), [xpa,] apt, args...) -> arr::Array{S,N}
-XPA.get_data(Array{S,N}, (dim1, ..., dimN), [xpa,] apt, args...) -> arr::Array{S,N}
-```
-
-In that case, exactly one answer and no errors are expected from the request
-(as if `nmax=1` and `throwerrors=true` were specified).
+In this context, exactly one answer and no errors are expected from the request (as if
+`nmax=1` and `throwerrors=true` were specified) and `dims`, if specified, must be a single
+integer or a tuple of integers.
 
 
 ## Examples
 
-The following examples assume that you have created an XPA client connection
-and identified the address of a SAOImage-DS9 server.  For instance:
+The following examples assume that `apt` is the access-point or the unique address of a
+SAOImage-DS9 server. For instance:
 
 ```julia
 using XPA
-conn = XPA.Client()
-addr = split(XPA.get_server(XPA.get(conn, "DS9:*", "version"; nmax=1, throwerrors=true)); keepempty=false)[2]
-ds9 = (conn, addr)
+apt = XPA.find(apt -> apt.class == "DS9"; select=:interact)
 ```
 
 To retrieve the version as a string:
 
 ```julia-repl
-julia> XPA.get(String, ds9..., "version")
-"ds9 8.0.1\n"
+julia> XPA.get(String, apt, "version")
+"ds9-8.7b1 8.7b1\n"
 ```
 
-To split the answer in (non-empty) words:
+To retrieve the *about* answer as (non-empty) lines:
 
-```julia
-split(XPA.get(String, ds9..., "version"); keepempty=false)
+```julia-repl
+julia> split(XPA.get(String, apt, "about"), r"\n|\r\n?"; keepempty=false)
+10-element Vector{SubString{String}}:
+ "SAOImageDS9"
+ "Version 8.7b1"
+ "Authors"
+ "William Joye (Smithsonian Astrophysical Observatory)"
+ "Eric Mandel (Smithsonian Astrophysical Observatory)"
+ "Steve Murray (Smithsonian Astrophysical Observatory)"
+ "Development funding"
+ "NASA's Applied Information Systems Research Program (NASA/ETSO)"
+ "Chandra X-ray Science Center (CXC)"
+ "High Energy Astrophysics Science Archive Center (NASA/HEASARC)"
+
 ```
 
-You may use keyword `keepempty=true` in `split(...)` to keep empty strings in
-the result.
-
-To retrieve the answer as (non-empty) lines:
+To retrieve the bits-per-pixel and the dimensions of the current image:
 
 ```julia
-split(XPA.get(String, ds9..., "about"), r"\n|\r\n?"; keepempty=false)
-```
-
-To retrieve the dimensions of the current image:
-
-```julia
-map(s -> parse(Int, s), split(XPA.get(String, ds9..., "fits size"); keepempty=false))
+bitpix = parse(Int, XPA.get(String, apt, "fits bitpix"))
+dims = map(s -> parse(Int, s), split(XPA.get(String, apt, "fits size"); keepempty=false))
 ```
 
 
 ## Sending data to one or more servers
 
-The [`XPA.set`](@ref) method is called to send a command and some optional data
-to a server.  The general syntax is:
+The [`XPA.set`](@ref) method is called to send a command and some optional data to a server.
+The general syntax is:
 
 ```julia
-XPA.set([xpa,] apt, args...; data=nothing) -> rep
+XPA.set([conn,] apt, args...; data=nothing) -> rep
 ```
 
-which sends `data` to one or more XPA access points identified by `apt` with
-arguments `args...` (automatically converted into a single string where the
-arguments are separated by a single space).  As with [`XPA.get`](@ref), the
-result is an instance of [`XPA.Reply`](@ref).  See the documentation of
-[`XPA.get`](@ref) for explanations about how to manipulate such a result.
+which sends `data` to one or more XPA access-points identified by `apt` with arguments
+`args...`. As with [`XPA.get`](@ref), arguments `args...` are converted into a string with a
+single space to separate them and the result `rep` is an abstract vector of answer(s) stored
+by an instance of [`XPA.Reply`](@ref). The [`XPA.set`](@ref) method accepts the same
+keywords as [`XPA.get`](@ref) plus the `data` keyword used to specify the data to send to
+the server(s). The value of `data` may be `nothing` if there is no data to send (this is the
+default). Otherwise, the value of `data` may be an array, or an ASCII string. Arrays are
+sent as binary data, if the array `data` does not have contiguous elements (that is not a
+*dense array*), it is converted to an `Array`.
 
-The [`XPA.set`](@ref) method accepts the same keywords as [`XPA.get`](@ref)
-plus the `data` keyword used to specify the data to send to the server(s).  Its
-value may be `nothing`, an array or a string.  If it is an array, it must have
-contiguous elements (as a for a *dense* array) and must implement the `pointer`
-method.  By default, `data=nothing` which means that no data are sent to the
-server(s), just the command string made of the arguments `args...`.
+As an example, here is how to make SAOImage-DS9 server to quit:
+
+```julia
+XPA.set(apt, "quit");
+```
 
 
 ## Messages
 
-The returned messages string are of the form:
+If not empty, message strings associated with XPA answers are of the form:
 
 ```julia
 XPA$ERROR message (class:name ip:port)
@@ -292,7 +286,6 @@ or
 XPA$MESSAGE message (class:name ip:port)
 ```
 
-depending whether an error or an informative message has been set (with
-`XPA.error()` or `XPA.message()` respectively).  Note that when there is an
-error stored in an messages entry, the corresponding data buffers may or may
-not be empty, depending on the particularities of the server.
+depending whether an error or an informative message has been set. When a message indicates
+an error, the corresponding data buffers may or may not be empty, depending on the
+particularities of the server.
