@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+This version fixes some bugs and introduces a better API to deal with XPA reply which is now
+implemented as a vector of answer(s) with properties to retrieve their status, associated
+message, and data. Code using the previous version should run almost unchanged except for
+the `preserve` keyword in `XPA.get_data` that has been replaced by `take`.
+
 ### Added
 
 - Use `@public` macro from [`TypeUtils`](https://github.com/emmt/TypeUtils.jl) package to
@@ -46,6 +51,10 @@
   | `rep[i].has_error`              | `XPA.has_error(rep, i)`                  |
   | `rep[i].has_message`            | `XPA.has_message(rep, i)`                |
   | `rep[i].data(args...; kwds...)` | `XPA.get_data(args..., rep, i; kwds...)` |
+
+- The `perserve` keyword of the `XPA.get_data` method and the `data` properties of XPA
+  answers has been replaced by the `take` keyword with opposite meaning and slightly
+  different semantic (it is ignored if stealing the internal buffer does not save memory).
 
 - Properties of `apt::XPA.AccessPoint` are the recommended way to retrieve the content of
   `apt`. For example, use `apt.address` instead of `XPA.address(apt)`. Method `isopen(apt)`

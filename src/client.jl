@@ -491,11 +491,10 @@ if `nmax=1` and `throwerrors=true`) and the data part of the answer is converted
 to `T` which must be a type and `dims` which is an optional array size:
 
 * With `dims` an `N`-dimensional array size and `T` an array type like `Array{S}` or
-  `Array{S,N}`, the data is converted into an array of this type and size.
+  `Array{S,N}`, the data is returned as an array of this type and size.
 
-* Without `dims` and if `T` is a vector like `Vector{S}` or `Memory{S}`, the data is
-  converted into a vector of type `T` with as many elements of type `S` that fit into the
-  data.
+* Without `dims` and if `T` is a vector type like `Vector{S}` or `Memory{S}`, the data is
+  returned as a vector of type `T` with as many elements of type `S` that fit into the data.
 
 * Without `dims` and if `T` is `String`, a string interpreting the data as ASCII characters
   is returned.
@@ -549,27 +548,29 @@ get(conn::Client, apt::AccessPoint, args...; kwds...) =
 get(conn::Client, apt::AbstractString, args...; kwds...) =
     get(conn, apt, join_arguments(args); kwds...)
 
-_get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
+# Union of types of the first argument in `get` that is not part of the return type
+# specifiers.
+const GetArg1 = Union{Client,AccessPoint,AbstractString,Symbol}
 
-function get(::Type{R}, arg1::Union{Client,AccessPoint,AbstractString},
-             args...; kwds...) where {T,R<:AbstractVector{T}}
+function get(::Type{R}, arg1::GetArg1, args...; kwds...) where {T,R<:AbstractVector{T}}
     return get_data(R, _get1(arg1, args...; kwds...))
 end
 
-function get(::Type{R}, shape::Shape, arg1::Union{Client,AccessPoint,AbstractString},
-             args...; kwds...) where {T,R<:AbstractArray{T}}
+function get(::Type{R}, shape::Shape, arg1::GetArg1, args...;
+             kwds...) where {T,R<:AbstractArray{T}}
     get_data(R, shape, _get1(arg1, args...; kwds...))
 end
 
-function get(::Type{String}, arg1::Union{Client,AccessPoint,AbstractString},
-             args...; kwds...)
+function get(::Type{String}, arg1::GetArg1, args...; kwds...)
     return get_data(String, _get1(arg1, args...; kwds...))
 end
 
-function get(::Type{T}, arg1::Union{Client,AccessPoint,AbstractString},
-             args...; kwds...) where {T}
+function get(::Type{T}, arg1::GetArg1, args...; kwds...) where {T}
     return get_data(T, _get1(arg1, args...; kwds...))
 end
+
+# Send an XPA get command expecting a single answer.
+_get1(args...; kwds...) = get(args...; nmax = 1, throwerrors = true, kwds...)
 
 function _get(conn::Client, apt::AbstractString, params::AbstractString,
               mode::AbstractString, nmax::Int, throwerrors::Bool,
@@ -796,7 +797,7 @@ function has_error(A::eltype(Reply))
     B, i = parent(A), index(A)
     return GC.@preserve B _starts_with(_unsafe_message(B, i), _XPA_ERROR)
 end
-const _XPA_ERROR   = "XPA\$ERROR "
+const _XPA_ERROR = "XPA\$ERROR "
 
 """
     XPA.has_message(rep::XPA.Reply, i=1)
@@ -971,26 +972,34 @@ function verify(rep::Reply, i::Integer; throwerrors::Bool=false)
 end
 
 """
-    XPA.get_data([T, [dims,]] rep::XPA.Reply, i=1; preserve=false)
-    XPA.get_data([T, [dims,]] rep[i]; preserve=false)
-    rep[i].data([T, [dims,]]; preserve=false)
+    XPA.get_data([T, [dims,]] rep::XPA.Reply, i=1; take=false)
+    XPA.get_data([T, [dims,]] rep[i]; take=false)
+    rep[i].data([T, [dims,]]; take=false)
 
 yields the data associated with the `i`-th answer in XPA reply `rep`. The returned value
 depends on the optional leading arguments `T` and `dims`:
 
-* If neither `T` nor `dims` are specified, a vector of bytes (`$Byte`) is returned.
+* If neither `T` nor `dims` are specified, the data is returned as a vector of bytes
+  (`$Byte`).
 
-* If only `T` is specified, it can be `String` to return a string interpreting the data as
-  ASCII characters or a type like `Vector{S}` to return the largest vector of elements of
-  type `S` that can be extracted from the data.
+* With `dims` an `N`-dimensional array size and `T` an array type like `Array{S}` or
+  `Array{S,N}`, the data is returned as an array of this type and size.
 
-* If both `T` and `dims` are specified, `T` can be an array type like `Array{S}` or
-  `Array{S,N}` and `dims` a list of `N` dimensions to retrieve the data as an array of type
-  `Array{S,N}`.
+* Without `dims` and if `T` is a vector type like `Vector{S}` or `Memory{S}`, the data is
+  returned as a vector of type `T` with as many elements of type `S` that fit into the data.
 
-Keyword `preserve` specifies whether or not to preserve the internal data buffer in `rep`
-for another call to `XPA.get_data`. This keyword is ignored if the result cannot directly
-use the internal buffer. By default, `preserve=true`.
+* Without `dims` and if `T` is `String`, a string interpreting the data as ASCII characters
+  is returned.
+
+* Without `dims` and for any other types `T`, the `sizeof(T)` leading bytes of the data are
+  returned as a single value of type `T`.
+
+Except if `T` is `String`, trailing data bytes, if any, are ignored.
+
+The `take` keyword specifies whether the returned result may steal the internal data buffer
+in `rep[i]` thus saving some memory and copy but preventing other retrieval of the data by
+another call to `XPA.get_data`. This keyword is ignored if the result cannot directly use
+the internal buffer. By default, `take=false`.
 
 In any cases, the type of the result is predictable, so there should be no type instability
 issue.
@@ -1022,9 +1031,9 @@ function get_data(A::eltype(Reply); kwds...)
     return get_data(Memory{Byte}, A; kwds...)
 end
 
-# Convert content to a single ASCII string. `preserve` keyword is ignored because a copy is
+# Convert content to a single ASCII string. The `take` keyword is ignored because a copy is
 # made anyway.
-function get_data(::Type{String}, A::eltype(Reply); preserve::Bool = true)
+function get_data(::Type{String}, A::eltype(Reply); take::Bool = false)
     B, i = parent(A), index(A)
     GC.@preserve B begin
         ptr, len = _unsafe_data(B, i)
@@ -1032,9 +1041,9 @@ function get_data(::Type{String}, A::eltype(Reply); preserve::Bool = true)
     end
 end
 
-# Returns content as a single value. `preserve` keyword is ignored because a copy is made
+# Returns content as a single value. The `take` keyword is ignored because a copy is made
 # anyway.
-function get_data(::Type{T}, A::eltype(Reply); preserve::Bool = true) where {T}
+function get_data(::Type{T}, A::eltype(Reply); take::Bool = false) where {T}
     isbitstype(T) || throw(ArgumentError("value type `$T` is not plain data type"))
     B, i = parent(A), index(A)
     GC.@preserve B begin
@@ -1061,7 +1070,7 @@ end
 
 # Returns content as an array of given size and element type.
 function get_data(::Type{R}, dims::Dims{N}, A::eltype(Reply);
-                  preserve::Bool = true) where {T,N,R<:AbstractArray{T}}
+                  take::Bool = false) where {T,N,R<:AbstractArray{T}}
     R <: Union{Array,Memory} || throw(ArgumentError("unsupported array type `$R`"))
     isbitstype(T) || throw(ArgumentError("array element type `$T` is not plain data type"))
     !has_ndims(R) || ndims(R) == N || throw(DimensionMismatch(
@@ -1075,7 +1084,7 @@ function get_data(::Type{R}, dims::Dims{N}, A::eltype(Reply);
     end
     nelem*sizeof(T) ≤ nbytes || throw_buffer_too_small(nelem*sizeof(T), nbytes)
     GC.@preserve B begin
-        if R <: Array{T} && !preserve && nelem > 0
+        if R <: Array{T} && take && nelem > 0
             # Transfer ownership of buffer to Julia.
             @inbounds begin
                 # It is better to not free than free more than once, so forget buffer first.
