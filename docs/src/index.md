@@ -16,7 +16,7 @@ exploits `XPA.jl` to communicate with [SAOImage-DS9](http://ds9.si.edu/site/Home
 ## Table of contents
 
 ```@contents
-Pages = ["intro.md", "client.md", "install.md", "misc.md", "server.md", "library.md"]
+Pages = ["intro.md", "client.md", "install.md", "misc.md", "server.md", "faq.md", "library.md"]
 ```
 
 ## Index

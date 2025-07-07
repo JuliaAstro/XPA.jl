@@ -5,6 +5,7 @@ pages = [
     "client.md",
     "server.md",
     "misc.md",
+    "faq.md",
     "library.md",
     hide("private.md"),
 ]
