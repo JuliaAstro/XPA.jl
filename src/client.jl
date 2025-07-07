@@ -357,10 +357,10 @@ provided function.
 [`XPA.find`](@ref) to obtain the access-point of a single XPA server.
 
 """
-function AccessPoint(; class::AbstractString = EMPTY_STRING,
-                     name::AbstractString = EMPTY_STRING,
-                     address::AbstractString = EMPTY_STRING,
-                     user::AbstractString = EMPTY_STRING,
+function AccessPoint(; class::AbstractString = "",
+                     name::AbstractString = "",
+                     address::AbstractString = "",
+                     user::AbstractString = "",
                      access::Union{Integer,AbstractString} = 0)
     return AccessPoint(class, name, address, user, _accesspoint_type(access))
 end
@@ -772,7 +772,7 @@ end
 
 # `_string(ptr)` copies bytes at address `ptr` as a string, returning an empty
 # string if `ptr` is `NULL`.
-_string(ptr::Ptr{Byte}) = isnull(ptr) ? EMPTY_STRING : unsafe_string(ptr)
+_string(ptr::Ptr{Byte}) = isnull(ptr) ? "" : unsafe_string(ptr)
 
 """
     XPA.has_error(rep::XPA.Reply, i=1)
@@ -1028,7 +1028,7 @@ function get_data(::Type{String}, A::eltype(Reply); preserve::Bool = true)
     B, i = parent(A), index(A)
     GC.@preserve B begin
         ptr, len = _unsafe_data(B, i)
-        return iszero(len) ? EMPTY_STRING : unsafe_string(ptr, len)
+        return iszero(len) ? "" : unsafe_string(ptr, len)
     end
 end
 

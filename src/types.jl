@@ -12,7 +12,6 @@
 
 const Byte = UInt8
 const NULL = Ptr{Byte}(0)
-const EMPTY_STRING = ""
 
 """
 
