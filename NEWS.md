@@ -12,6 +12,9 @@ the `preserve` keyword in `XPA.get_data` that has been replaced by `take`.
 - Use `@public` macro from [`TypeUtils`](https://github.com/emmt/TypeUtils.jl) package to
   declare non-exported public methods.
 
+- Methods `XPA.preserve_state` and `XPA.restore_state` to preserve or save and restore the
+  state of a dictionary for a given key.
+
 ### Fixed
 
 - Client and server objects are preserved from being garbage collected in `ccall`,

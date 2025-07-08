@@ -140,22 +140,11 @@ function list(f::Function = Returns(true);
 
     # Memorize environment and collect a list of running XPA servers.
     global ENV
-    has_method = haskey(ENV, "XPA_METHOD")
-    old_method = has_method ? ENV["XPA_METHOD"] : ""
     lines = String[]
-    try
-        for _method in (method === nothing ? ("unix", "inet") : (string(method),))
-            ENV["XPA_METHOD"] = _method
+    preserve_state(ENV, "XPA_METHOD") do
+        for m in (method === nothing ? ("unix", "inet") : (string(method),))
+            ENV["XPA_METHOD"] = m
             append!(lines, _list_accesspoints(xpaget))
-        end
-    catch ex
-        throw(ex)
-    finally
-        # Restore environment.
-        if has_method
-            ENV["XPA_METHOD"] = old_method
-        else
-            delete!(ENV, "XPA_METHOD")
         end
     end
 
@@ -639,14 +628,14 @@ function _get(conn::Client, apt::AbstractString, params::AbstractString,
     buffers = _buffers(A)
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
-    prevusers = _override_nsusers(users)
+    nsusers_state = override_nsusers(users)
     got = GC.@preserve A ccall(
         (:XPAGet, libxpa), Cint,
         (Client, Cstring, Cstring, Cstring, Ptr{Ptr{Byte}},
          Ptr{Csize_t}, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
         conn, apt, params, mode, address, lengths,
         address + offset, address + 2*offset, nmax)
-    _restore_nsusers(prevusers)
+    restore_nsusers(nsusers_state)
     0 ≤ got ≤ nmax || throw(AssertionError("unexpected number of replies from `XPAGet`"))
     setfield!(A, :replies, Int(got)::Int)
     throwerrors && verify(A; throwerrors=true)
@@ -662,49 +651,33 @@ function _set(conn::Client, apt::AbstractString, params::AbstractString,
     buffers = _buffers(A)
     address = pointer(buffers)
     offset = nmax*sizeof(Ptr{Byte})
-    prevusers = _override_nsusers(users)
+    nsusers_state = override_nsusers(users)
     got = GC.@preserve A ccall(
         (:XPASet, libxpa), Cint,
         (Client, Cstring, Cstring, Cstring, Ptr{Cvoid},
          Csize_t, Ptr{Ptr{Byte}}, Ptr{Ptr{Byte}}, Cint),
         conn, apt, params, mode, data, sizeof(data),
         address + offset, address + 2*offset, nmax)
-    _restore_nsusers(prevusers)
+    restore_nsusers(nsusers_state)
     0 ≤ got ≤ nmax || throw(AssertionError("unexpected number of replies from `XPASet`"))
     setfield!(A, :replies, Int(got)::Int)
     throwerrors && verify(A; throwerrors=true)
     return A
 end
 
-"""
-    _override_nsusers(users::AbstractString) -> String
-    _override_nsusers(users::Nothing) -> Nothing
-
-Override environment variable `XPA_NSUSERS`.
-
-"""
-_override_nsusers(::Nothing) = nothing
-function _override_nsusers(users::AbstractString)
-    prev = Base.get(ENV, "XPA_NSUSERS", "")
-    ENV["XPA_NSUSERS"] = users
-    return prev
+# Override environment variable `XPA_NSUSERS`.
+override_nsusers(::Nothing) = nothing
+function override_nsusers(users::AbstractString)
+    global ENV
+    key = "XPA_NSUSERS"
+    state = preserve_state(ENV, key, "")
+    ENV[key] = users
+    return state
 end
 
-"""
-    _restore_nsusers(users::Union{AbstractString,Nothing})
-
-Restore environment variable `XPA_NSUSERS`.
-
-"""
-_restore_nsusers(::Nothing) = nothing
-function _restore_nsusers(users::AbstractString)
-    if isempty(users)
-        delete!(ENV, "XPA_NSUSERS")
-    else
-        ENV["XPA_NSUSERS"] = users
-    end
-    nothing
-end
+# Restore environment variable `XPA_NSUSERS`.
+restore_nsusers(::Nothing) = nothing
+restore_nsusers(state::Tuple) = restore_state(state)
 
 #-------------------------------------------------------------------------------------------
 

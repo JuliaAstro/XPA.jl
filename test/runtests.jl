@@ -59,6 +59,35 @@ import Base: RefValue
         @test XPA.setconfig!(:XPA_IOCALLSXPA, !val) == val
         @test XPA.getconfig(:XPA_IOCALLSXPA) == !val
     end
+    @testset "XPA Utilities" begin
+        A = Dict(:a => 1, :b => 2, :c => 3)
+        s = @inferred XPA.preserve_state(A, :b)
+        delete!(A, :b)
+        @test !haskey(A, :b)
+        XPA.restore_state(s)
+        @test haskey(A, :b) && A[:b] === 2
+        A[:b] = -1
+        XPA.restore_state(s)
+        @test haskey(A, :b) && A[:b] === 2
+        s = @inferred XPA.preserve_state(A, :x)
+        @test !haskey(A, :x)
+        A[:x] = 0
+        @test haskey(A, :x) && A[:x] === 0
+        XPA.restore_state(s)
+        @test !haskey(A, :x)
+        XPA.preserve_state(A, :x) do
+            A[:x] = 0
+        end
+        @test !haskey(A, :x)
+        XPA.preserve_state(A, :b) do
+            A[:b] = 0
+        end
+        @test haskey(A, :b) && A[:b] === 2
+        XPA.preserve_state(A, :b) do
+            delete!(A, :b)
+        end
+        @test haskey(A, :b) && A[:b] === 2
+    end
     @testset "XPA Client Connection" begin
         A = @inferred XPA.connection()
         @test A isa XPA.Client

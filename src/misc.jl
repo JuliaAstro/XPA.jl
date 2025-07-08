@@ -106,6 +106,67 @@ end
 
 #-------------------------------------------------------------------------------------------
 
+"""
+    s = XPA.preserve_state(dict, key[, val])
+
+Yield an object that can be used to restore the state of dictionary `dict` for entry `key`
+with [`XPA.restore_state`](@ref). For improved type-stability, optional argument `val` may
+be specified with a substitute value of the same type as those stored in `dict` if `key` is
+not in `dict`.
+
+The call:
+
+    XPA.preserve_state(f::Function, dict, key[, val])
+
+is equivalent to:
+
+    let state = XPA.preserve_state(dict, key[, val])
+        try
+            f()
+        finally
+            XPA.restore_state(state)
+        end
+    end
+
+which is suitable for the `do`-block syntax.
+
+"""
+function preserve_state(dict::AbstractDict, key, val = missing_value(dict))
+    flag = haskey(dict, key)
+    prev = flag ? dict[key] : val
+    return (dict, key, flag, prev)
+end
+
+function preserve_state(f::Function, dict::AbstractDict, key, val = missing_value(dict))
+    state = preserve_state(dict, key, val)
+    try
+        f()
+    finally
+        restore_state(state)
+    end
+end
+
+missing_value(dict::AbstractDict{<:Any,V}) where {V<:String} = ""
+missing_value(dict::AbstractDict{<:Any,V}) where {V<:Number} = zero(V)
+missing_value(dict::AbstractDict{<:Any,V}) where {V<:Any} = missing
+
+"""
+    XPA.restore_state(s)
+
+Restore the state saved in `s` by [`XPA.preserve_state`](@ref).
+
+"""
+function restore_state((dict, key, flag, prev)::Tuple{AbstractDict,Any,Bool,Any})
+    if flag
+        dict[key] = prev
+    else
+        delete!(dict, key)
+    end
+    return nothing
+end
+
+#-------------------------------------------------------------------------------------------
+
 # Accessors of some members of the `XPARec` structure.
 for (func, (memb, defval)) in (:get_name      => (:name,         ""),
                                :get_class     => (:xclass,       ""),

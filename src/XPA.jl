@@ -49,6 +49,8 @@ using TypeUtils: @public
 @public message
 @public peek
 @public poll
+@public preserve_state
+@public restore_state
 @public set
 @public setconfig!
 @public store!
