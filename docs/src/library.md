@@ -48,6 +48,8 @@ XPA.AccessPoint
 XPA.find
 XPA.getconfig
 XPA.setconfig!
+XPA.preserve_state
+XPA.restore_state
 ```
 
 ## Constants

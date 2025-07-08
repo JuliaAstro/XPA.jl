@@ -16,13 +16,6 @@ XPA.NullBuffer
 XPA.TupleOf
 ```
 
-## Functions
-
-```@docs
-XPA._override_nsusers
-XPA._restore_nsusers
-```
-
 ## `XPA.CDefs` module
 
 ```@docs

@@ -120,11 +120,11 @@ The call:
 
 is equivalent to:
 
-    let state = XPA.preserve_state(dict, key[, val])
+    let s = XPA.preserve_state(dict, key[, val])
         try
             f()
         finally
-            XPA.restore_state(state)
+            XPA.restore_state(s)
         end
     end
 
@@ -138,11 +138,11 @@ function preserve_state(dict::AbstractDict, key, val = missing_value(dict))
 end
 
 function preserve_state(f::Function, dict::AbstractDict, key, val = missing_value(dict))
-    state = preserve_state(dict, key, val)
+    s = preserve_state(dict, key, val)
     try
         f()
     finally
-        restore_state(state)
+        restore_state(s)
     end
 end
 
