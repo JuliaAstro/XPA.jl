@@ -1,6 +1,6 @@
 # Changes in XPA package
 
-## Version 0.3.0
+## Version 0.3.0 (2025-07-09)
 
 This version fixes some bugs and introduces a better API to deal with XPA reply which is now
 implemented as a vector of answer(s) with properties to retrieve their status, associated
