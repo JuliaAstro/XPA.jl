@@ -768,9 +768,9 @@ Base.getproperty(A::eltype(Reply), key::Symbol) =
     throw(KeyError(key))
 
 """
+    rep[i].message
     XPA.get_message(rep::XPA.Reply, i=1)
     XPA.get_message(rep[i])
-    rep[i].message
 
 yields the message associated with the `i`-th answer in XPA reply `rep`. An empty string is
 returned if there is no message.
@@ -791,9 +791,9 @@ function get_message(A::eltype(Reply))
 end
 
 """
+    rep[i].server
     XPA.get_server(rep::XPA.Reply, i=1)
     XPA.get_server(rep[i])
-    rep[i].server
 
 yields a string identifying the server who provided the `i`-th answer in XPA reply `rep`.
 
@@ -817,9 +817,9 @@ end
 _string(ptr::Ptr{Byte}) = isnull(ptr) ? "" : unsafe_string(ptr)
 
 """
+    rep[i].has_error
     XPA.has_error(rep::XPA.Reply, i=1)
     XPA.has_error(rep[i])
-    rep[i].has_error
 
 yields whether `i`-th answer in XPA reply `rep` has an error whose message is given by
 `rep[i].message`.
@@ -841,9 +841,9 @@ end
 const _XPA_ERROR = "XPA\$ERROR "
 
 """
+    rep[i].has_message
     XPA.has_message(rep::XPA.Reply, i=1)
     XPA.has_message(rep[i])
-    rep[i].has_message
 
 yields whether `i`-th answer in XPA reply `rep` has an associated message that is given by
 `rep[i].message`.
@@ -1013,9 +1013,9 @@ function verify(rep::Reply, i::Integer; throwerrors::Bool=false)
 end
 
 """
+    rep[i].data([T, [dims,]]; take=false)
     XPA.get_data([T, [dims,]] rep::XPA.Reply, i=1; take=false)
     XPA.get_data([T, [dims,]] rep[i]; take=false)
-    rep[i].data([T, [dims,]]; take=false)
 
 yields the data associated with the `i`-th answer in XPA reply `rep`. The returned value
 depends on the optional leading arguments `T` and `dims`:
