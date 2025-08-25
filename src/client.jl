@@ -539,8 +539,8 @@ get(apt::Union{AccessPoint,AbstractString}, args...; kwds...) =
 get(conn::Client, apt::AccessPoint, args...; kwds...) =
     get(conn, apt.address, args...; kwds...)
 
-get(conn::Client, apt::AbstractString, args...; kwds...) =
-    get(conn, apt, join_arguments(args); kwds...)
+get(conn::Client, addr::AbstractString, args...; kwds...) =
+    get(conn, addr, join_arguments(args); kwds...)
 
 # Union of types of the first argument in `get` that is not part of the return type
 # specifiers.
