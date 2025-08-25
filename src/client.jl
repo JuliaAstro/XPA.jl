@@ -170,7 +170,7 @@ function list(f::Function = Returns(true);
             end
         end
     end
-    return lst
+    return unique!(lst)
 end
 
 @deprecate(list(conn::Client; kwds...), list(; kwds...), false)
