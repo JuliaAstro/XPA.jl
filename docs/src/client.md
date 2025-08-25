@@ -62,8 +62,9 @@ julia> apts = XPA.list() do apt
 ```
 
 lists the SAOImage/DS9 servers with an internet socket connection. The `method` keyword may
-also be used to choose a specific connection type. See [`XPA.list`](@ref) documentation for
-more details and for other keywords.
+also be used to choose a specific connection type: one of `inet`, `unix`, `local`, or
+`localhost` as a symbol or a string. See [`XPA.list`](@ref) documentation for more details
+and for other keywords.
 
 In order to get the address of a unique XPA server, you may call [`XPA.find`](@ref) with a
 predicate function to filter the matching servers and a selection method to keep a single
