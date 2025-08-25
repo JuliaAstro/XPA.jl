@@ -546,21 +546,22 @@ get(conn::Client, addr::AbstractString, args...; kwds...) =
 # specifiers.
 const GetArg1 = Union{Client,AccessPoint,AbstractString,Symbol}
 
-function get(::Type{R}, arg1::GetArg1, args...; kwds...) where {T,R<:AbstractVector{T}}
-    return get_data(R, _get1(arg1, args...; kwds...))
+function get(::Type{R}, arg1::GetArg1, args...;
+             take::Bool=false, kwds...) where {T,R<:AbstractVector{T}}
+    return get_data(R, _get1(arg1, args...; kwds...); take=take)
 end
 
 function get(::Type{R}, shape::Shape, arg1::GetArg1, args...;
-             kwds...) where {T,R<:AbstractArray{T}}
-    get_data(R, shape, _get1(arg1, args...; kwds...))
+             take::Bool=false, kwds...) where {T,R<:AbstractArray{T}}
+    get_data(R, shape, _get1(arg1, args...; kwds...); take=take)
 end
 
-function get(::Type{String}, arg1::GetArg1, args...; kwds...)
-    return get_data(String, _get1(arg1, args...; kwds...))
+function get(::Type{String}, arg1::GetArg1, args...; take::Bool=false, kwds...)
+    return get_data(String, _get1(arg1, args...; kwds...); take=take)
 end
 
-function get(::Type{T}, arg1::GetArg1, args...; kwds...) where {T}
-    return get_data(T, _get1(arg1, args...; kwds...))
+function get(::Type{T}, arg1::GetArg1, args...; take::Bool = false, kwds...) where {T}
+    return get_data(T, _get1(arg1, args...; kwds...); take=take)
 end
 
 # Send an XPA get command expecting a single answer.
