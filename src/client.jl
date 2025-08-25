@@ -423,7 +423,7 @@ function Base.print(io::IO, apt::AccessPoint)
 end
 
 function Base.parse(::Type{AccessPoint}, str::AbstractString)
-    apt = tryparse(AccessPoint, str; kwds...)
+    apt = tryparse(AccessPoint, str)
     apt === nothing && error("failed to parse $(repr(str)) as an `XPA.AccessPoint`")
     return apt
 end
