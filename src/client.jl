@@ -112,16 +112,15 @@ end
 # Keywords
 
 - `method` is `nothing` (the default) or one of `inet`, `unix` (or `local`), or `localhost`
-  as a symbol or a string to require a specific connection method.
+  as a symbol or a string to require a specific connection method. By default, all
+  possibilities are considered.
 
 - `on_error` is a symbol indicating what to do in case of unexpected reply by the XPA name
   server; it can be `:throw` to throw an exception, `:warn` (the default) to print a
   warning, anything else to silently ignore the error.
 
-- `xpaget` is to specify the method to contact the XPA name server; it can be a string with
-  the path to the `xpaget` executable or a function behaving like [`XPA.get`](@ref). Using
-  [`XPA.get`](@ref) has fewer possibilities so, by default, the `xpaget` executable provided
-  by `XPA_jll` artifact is used.
+- `xpaget` is to specify the path of the `xpaget` executable to run to contact the XPA name
+  server. By default, the `xpaget` executable provided by `XPA_jll` artifact is used.
 
 # See also
 
@@ -133,32 +132,42 @@ predicate function `f`.
 """
 function list(f::Function = Returns(true);
               method::Union{Nothing,Symbol,AbstractString} = nothing,
-              xpaget::Union{AbstractString,typeof(XPA.get)} = default_xpaget(),
+              xpaget::AbstractString = default_xpaget(),
               on_error::Symbol = :warn)
-    # Check options.
-    method === nothing || check_connection_method(method)
-
-    # Memorize environment and collect a list of running XPA servers.
-    global ENV
-    lines = String[]
-    preserve_state(ENV, "XPA_METHOD") do
-        for m in (method === nothing ? ("unix", "inet") : (string(method),))
-            ENV["XPA_METHOD"] = m
-            append!(lines, _list_accesspoints(xpaget))
-        end
+    # Build checked list of XPA methods.
+    if method isa Nothing
+        methods = (:local, :inet)
+    elseif method isa AbstractString && method ∈ ("inet", "unix", "local", "localhost")
+        methods = (Symbol(method),)
+    elseif method isa Symbol && method ∈ (:inet, :unix, :local, :localhost)
+        methods = (method,)
+    else
+        throw(ArgumentError("invalid XPA connection method $(repr(method))"))
     end
 
-    # Parse textual descriptions of XPA servers.
+    # Find registered XPA servers for each connection method.
     lst = AccessPoint[]
-    for line in lines
-        apt = tryparse(AccessPoint, line)
-        if apt === nothing
-            if on_error in (:throw, :warn)
-                mesg = "failed to parse `xpans` output line: \"$line\""
-                on_error === :throw ? error(mesg) : @warn mesg
+    for method in methods
+        out = IOBuffer() # output buffer
+        err = IOBuffer() # error buffer
+        cmd = Cmd(`$xpaget -m $method xpans`; ignorestatus=true, detach=false)
+        if success(pipeline(cmd; stdout=out, stderr=err))
+            for line in split(String(take!(out)), r"\n|\r\n?"; keepempty=false)
+                apt = tryparse(AccessPoint, line)
+                if apt === nothing
+                    if on_error in (:throw, :warn)
+                        mesg = "failed to parse `xpans` output line: \"$line\""
+                        on_error === :throw ? error(mesg) : @warn mesg
+                    end
+                else
+                    f(apt) && push!(lst, apt)
+                end
             end
         else
-            f(apt) && push!(lst, apt)
+            msg = String(take!(err))
+            if !startswith(msg, "XPA\$ERROR no 'xpaget' access points match template:")
+                error("command $cmd failed: $(chomp(msg))")
+            end
         end
     end
     return lst
@@ -166,20 +175,8 @@ end
 
 @deprecate(list(conn::Client; kwds...), list(; kwds...), false)
 
-_list_accesspoints(xpaget::AbstractString) = readlines(`$xpaget xpans`)
-_list_accesspoints(xpaget::Function) =
-    split(chomp(xpaget(String, "xpans")), r"\n|\r\n?"; keepempty=false)
-
 # `xpaget` executable is taken if possible from artifact.
 default_xpaget() = isdefined(XPA_jll, :xpaget_path) ? XPA_jll.xpaget_path : "xpaget"
-
-check_connection_method(s) =
-    check_connection_method(Bool, s) ? nothing : throw(ArgumentError(
-        "invalid XPA connection method `$s`"))
-check_connection_method(::Type{Bool}, s::AbstractString) =
-    s in ("inet", "unix", "local", "localhost")
-check_connection_method(::Type{Bool}, s::Symbol) =
-    s in (:inet, :unix, :local, :localhost)
 
 """
     XPA.find(f = Returns(true); kwds...)

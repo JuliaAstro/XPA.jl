@@ -1,5 +1,15 @@
 # Changes in XPA package
 
+## Unreleased
+
+### Fixed
+
+- `XPA.list` now calls `xpaget` executable (the one shipped by `XPA_dll` artifact by
+  default) with the `-m $method` option to override `XPA_METHOD` environment variable. This
+  fixes the behavior of `XPA.list` and `XPA.find` when the `XPA.get` function was called
+  and/or when using the `XPA_METHOD` environment variable to select a specific method (issue
+  #12).
+
 ## Version 0.3.0 (2025-07-09)
 
 This version fixes some bugs and introduces a better API to deal with XPA reply which is now
