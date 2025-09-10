@@ -302,12 +302,7 @@ function select_interactively(iter)
     end
     menu = RadioMenu(options)
     choice = request("Please select one of:", menu)
-    for item in iter
-        choice == 2 && return item
-        choice > 2 && break
-        choice -= 1
-    end
-    return nothing
+    return (choice == 1) ? nothing : iter[choice - 1]
 end
 
 """
