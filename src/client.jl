@@ -296,16 +296,12 @@ menu_string(apt::AccessPoint) =
     "$(apt.class):$(apt.name) [address=\"$(apt.address)\", user=\"$(apt.user)\"]"
 
 function select_interactively(iter)
-    options = ["(none)"]
-    foreach(iter) do item
-        push!(options, menu_string(item))
-    end
-    menu = RadioMenu(options)
-    choice = request("Please select one of:", menu)
+    options = String[menu_string(item) for item in iter]
+    options = push!(options, "(none)")
+    choice = request("Please select one of:", RadioMenu(options))
     for item in iter
-        choice == 2 && return item
-        choice > 2 || break
-        choice -= 1
+        choice == 1 && return item
+        (choice -= 1) > 0 || break
     end
     return nothing
 end
