@@ -8,9 +8,10 @@
   default) with the `-m $method` option to override `XPA_METHOD` environment variable. This
   fixes the behavior of `XPA.list` and `XPA.find` when the `XPA.get` function was called
   and/or when using the `XPA_METHOD` environment variable to select a specific method (issue
-  [#12]).
+  [#12](https://github.com/JuliaAstro/XPA.jl/issues/12)).
 
-- Fix the interactive mode of `XPA.find` (see [#14]).
+- Fix the interactive mode of `XPA.find` (see PR
+  [#14](https://github.com/JuliaAstro/XPA.jl/pull/14)).
 
 ## Version 0.3.0 (2025-07-09)
 
