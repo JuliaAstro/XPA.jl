@@ -204,7 +204,7 @@ are available:
 # Example
 
 ``` julia
-apt = XPA.find(; interact = isinteractive(), method = :local)
+apt = XPA.find(; select = isinteractive() ? :interact : :throw , method = :local)
 ```
 
 # See also
