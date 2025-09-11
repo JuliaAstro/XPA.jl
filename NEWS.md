@@ -1,6 +1,6 @@
 # Changes in XPA package
 
-## Unreleased
+## Version 0.3.1 (2025-09-11)
 
 ### Fixed
 
@@ -9,6 +9,8 @@
   fixes the behavior of `XPA.list` and `XPA.find` when the `XPA.get` function was called
   and/or when using the `XPA_METHOD` environment variable to select a specific method (issue
   #12).
+
+- Fix the interactive mode of `XPA.find` (see #14).
 
 ## Version 0.3.0 (2025-07-09)
 
