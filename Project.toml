@@ -12,7 +12,7 @@ XPA_jll = "9dbca590-e19a-5566-89a8-3997bfd21c58"
 [compat]
 REPL = "<0.0.1, 1"
 Test = "<0.0.1, 1"
-TypeUtils = "1.9.0"
+TypeUtils = "1.9.0, 2"
 XPA_jll = "2.1.20"
 julia = "1.3"
 
