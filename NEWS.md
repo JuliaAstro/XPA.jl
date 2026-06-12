@@ -1,5 +1,7 @@
 # Changes in XPA package
 
+## Version 0.3.2 (2026-06-13)
+
 ### Fixed
 
 - Compatibility with `TypeUtils` 1 and 2.
