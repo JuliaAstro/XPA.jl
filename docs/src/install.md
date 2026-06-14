@@ -18,7 +18,7 @@ The source code of XPA.jl is available
 [here](https://github.com/JuliaAstro/XPA.jl).
 
 
-### Eays installation
+### Easy installation
 
 The easiest installation is when your system provides XPA dynamic library and
 header files as a package.  For example, on Ubuntu, just do:

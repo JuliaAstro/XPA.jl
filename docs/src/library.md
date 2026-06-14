@@ -1,6 +1,6 @@
 # Reference
 
-The following provides detailled documentation about types and methods provided
+The following provides detailed documentation about types and methods provided
 by the XPA package.  This information is also available from the REPL by typing
 `?` followed by the name of a method or a type.
 

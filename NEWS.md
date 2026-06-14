@@ -133,12 +133,12 @@ message, and data. Code using the previous version should run almost unchanged.
 
 ### New functionalities and improvements
 
-- `XPA.jl` now dependends on `XPA_jll` artifact to provide the XPA dynamic
+- `XPA.jl` now depends on `XPA_jll` artifact to provide the XPA dynamic
   library.  This requires Julia version ≥ 1.3.
 
 - New method `XPA.find` to retrieve the address of a specific server.
 
-- New method `XPA.address` to get the address of an XPA accesspoint specified
+- New method `XPA.address` to get the address of an XPA access point specified
   in various forms.
 
 - New `XPA.verify` method to check whether a result from an XPA request has
@@ -177,11 +177,11 @@ message, and data. Code using the previous version should run almost unchanged.
   server, message or data) of a given reply in various forms.  Instances of
   `Reply` are mutable object and have a finalizer which takes care of correctly
   freeing memory.  By default, when retrieving the data associated with a given
-  reply, the ownership of the data is transfered to Julia thus avoiding
-  unecessary copies.
+  reply, the ownership of the data is transferred to Julia thus avoiding
+  unnecessary copies.
 
   Old `XPA.get_*` methods have been suppressed as the same result can be
-  obtained by spcifying the type of result in calls to `XPA.get` or to the new
+  obtained by specifying the type of result in calls to `XPA.get` or to the new
   `XPA.get_data`.
 
 - Specialize `SendCallback` and `ReceiveCallback`: they are now mutable

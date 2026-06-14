@@ -222,8 +222,8 @@ struct XPARec
     fd::Cint                      # listening socket file descriptor
     method::Ptr{UInt8}            # (C string) method string: host:ip or unix_filename
     nshead::Ptr{NSRec}            # name servers associated with this access point
-    commhead::Ptr{XPACommRec}     # linked list of communcation records
-    cliphead::Ptr{ClipRec}        # linked list of cliboard records
+    commhead::Ptr{XPACommRec}     # linked list of communication records
+    cliphead::Ptr{ClipRec}        # linked list of clipboard records
     filename::Ptr{UInt8}          # (C string) file name (unix sockets) for listening
     sendian::Ptr{UInt8}           # (C string) endian-ness of server
     # request-specific info

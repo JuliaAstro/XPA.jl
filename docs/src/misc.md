@@ -18,7 +18,7 @@ arr[i].access   # allowed access (g=xpaget, s=xpaset, i=xpainfo)
 ```
 
 all fields but `access` are strings, the `addr` field is the name of the socket used for the
-connection (either `host:port` for internet socket, or a file path for local unix socket),
+connection (either `host:port` for internet socket, or a file path for local Unix socket),
 `access` is a combination of the bits `XPA.GET`, `XPA.SET` and/or `XPA.INFO` depending
 whether `XPA.get()`, `XPA.set()` and/or `XPA.info()` access are granted. Note that
 `XPA.info()` is not yet implemented.
