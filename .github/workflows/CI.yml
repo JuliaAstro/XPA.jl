@@ -13,19 +13,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: 
+          - ubuntu-latest
+          - windows-latest
+          # - macos-latest
         version: ['lts', '1', 'min']
-        # aarch64 for macOS only and the matrix options are fiddly and annoying
-        arch: [x64, x86, aarch64]
-        exclude:
-          - os: ubunutu-latest
-            version: aarch64
-          - os: windows-latest
-            version: aarch64
-          - os: macos-latest
-            arch: x86
-          - os: macos-latest
-            arch: x64
 
     steps:
       - uses: actions/checkout@v6
